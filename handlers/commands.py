@@ -15,7 +15,8 @@ from database import (
     has_active_subscription,
     WHITELIST_USERNAMES,
     get_total_users,
-    get_active_subscriptions
+    get_active_subscriptions,
+    FREE_MESSAGE_LIMIT
 )
 from handlers.keyboards import get_main_menu, get_buy_menu
 
@@ -85,19 +86,26 @@ async def cmd_status(message: Message):
     
     if has_active_subscription(user_id) and subscription:
         expires = datetime.fromisoformat(subscription[1])
-        days_left = (expires - datetime.now()).days
-        
+        time_left = expires - datetime.now()
+
+        # Форматируем оставшееся время
+        if time_left.days > 0:
+            time_left_str = f"{time_left.days} days"
+        else:
+            hours_left = time_left.seconds // 3600
+            time_left_str = f"{hours_left} hours"
+
         await message.answer(
             f"✅ **Premium Active**\n\n"
             f"Status: Premium 💎\n"
             f"Expires: {expires.strftime('%Y-%m-%d %H:%M')}\n"
-            f"Days left: {days_left}\n\n"
+            f"Time left: {time_left_str}\n\n"
             f"Enjoy unlimited practice!",
             reply_markup=get_main_menu(user_id, username)
         )
     else:
         messages_used = user[2]
-        messages_left = 25 - messages_used
+        messages_left = FREE_MESSAGE_LIMIT - messages_used
         
         if messages_left > 0:
             await message.answer(

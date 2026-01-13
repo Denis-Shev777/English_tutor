@@ -79,7 +79,8 @@ async def callback_pay_usdt(callback: CallbackQuery):
     )
     
     await callback.message.answer(text, reply_markup=keyboard)
-    await callback.message.answer(f"`{USDT_WALLET}`", parse_mode="Markdown")
+    if USDT_WALLET:
+        await callback.message.answer(f"`{USDT_WALLET}`", parse_mode="Markdown")
 
 @router.callback_query(F.data == "copy_wallet")
 async def copy_wallet_address(callback: CallbackQuery):
@@ -195,7 +196,8 @@ async def cmd_buy_usdt(message: Message):
     )
     
     await message.answer(text, reply_markup=keyboard)
-    await message.answer(f"`{USDT_WALLET}`", parse_mode="Markdown")
+    if USDT_WALLET:
+        await message.answer(f"`{USDT_WALLET}`", parse_mode="Markdown")
 
 @router.pre_checkout_query()
 async def pre_checkout_handler(pre_checkout_query: PreCheckoutQuery):

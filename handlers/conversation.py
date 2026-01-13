@@ -16,7 +16,8 @@ from database import (
     get_user,
     create_user,
     can_send_message,
-    WHITELIST_USERNAMES
+    WHITELIST_USERNAMES,
+    FREE_MESSAGE_LIMIT
 )
 from services.ollama_service import get_ollama_response
 from services.whisper_service import transcribe_audio
@@ -28,27 +29,14 @@ router = Router()
 async def process_user_message(message: Message, user_text: str):
     """
     Общая функция обработки сообщения (текст или распознанная речь)
+    ВАЖНО: Проверка лимитов должна быть выполнена ДО вызова этой функции!
     """
     user_id = message.from_user.id
     username = message.from_user.username
     bot = message.bot
-    
-    # ПРОВЕРЯЕМ ЛИМИТ СООБЩЕНИЙ ПЕРЕД ОБРАБОТКОЙ
-    if not can_send_message(user_id, username):
-        await bot.send_message(
-            user_id,
-            "Free messages exhausted\n\n"
-            "You've used all 25 free messages.\n\n"
-            "Get premium access:\n"
-            "100 Stars - 1 week\n"
-            "1.5 USDT (BEP-20) - 1 week\n\n"
-            "Press /buy to continue practicing!",
-            reply_markup=get_main_menu(user_id, username)
-        )
-        return
-    
-    # Получаем историю разговора
-    history = get_conversation_history(user_id)
+
+    # Получаем историю разговора (последние 8 сообщений для контекста)
+    history = get_conversation_history(user_id, limit=8)
     
     # Показываем "печатает..."
     await bot.send_chat_action(user_id, ChatAction.TYPING)
@@ -119,7 +107,7 @@ async def process_user_message(message: Message, user_text: str):
     if not (username and username in WHITELIST_USERNAMES):
         user = get_user(user_id)
         if user:
-            messages_left = 25 - user[2]
+            messages_left = FREE_MESSAGE_LIMIT - user[2]
             if 0 < messages_left <= 5:
                 await message.answer(
                     f"You have {messages_left} free messages left.\n"
@@ -210,28 +198,17 @@ async def handle_text_message(message: Message):
     
     # Игнорируем команды и кнопки
     if user_text.startswith('/') or user_text in ["📊 Мой статус", "💎 Купить Premium", "💎 Продлить Premium", "🧠 Очистить память", "❓ Помощь", "📈 Статистика"]:
-        print("Это команда или кнопка - игнорируем")
+        # Это команда или кнопка - игнорируем
         return
     
     # Проверяем/создаём пользователя
-    print(f"Проверяю пользователя в базе...")
     user = get_user(user_id)
     
     if not user:
-        print(f"Пользователь не найден! Создаю...")
         create_user(user_id, username or message.from_user.first_name)
-        user = get_user(user_id)
-        print(f"Пользователь создан: {user}")
-    else:
-        print(f"Пользователь найден: {user}")
-    
+
     # ПРОВЕРЯЕМ ЛИМИТЫ С USERNAME
-    print(f"Проверяю лимиты...")
-    can_send = can_send_message(user_id, username)
-    print(f"Результат can_send_message: {can_send}")
-    
-    if not can_send:
-        print(f"Лимит исчерпан!")
+    if not can_send_message(user_id, username):
         await message.answer(
             "You've used all your free messages!\n\n"
             "Get a subscription to continue practicing English\n\n"
@@ -239,7 +216,5 @@ async def handle_text_message(message: Message):
             reply_markup=get_main_menu(user_id, username)
         )
         return
-    
-    print(f"Лимиты ОК, обрабатываю сообщение...")
     # Обрабатываем сообщение
     await process_user_message(message, user_text)

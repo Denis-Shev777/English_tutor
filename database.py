@@ -1,15 +1,21 @@
 import sqlite3
+import os
 from datetime import datetime, timedelta
+from dotenv import load_dotenv
+
+# Загружаем .env
+load_dotenv()
 
 DB_NAME = "bot.db"
 
-# Белый список пользователей (безлимит) - по username (БЕЗ @)
-WHITELIST_USERNAMES = [
-    "Den_Shev_007",  # Денис
-    "Ir_Shev",       # Ирина
-    "Artur_sheff",   # Артур
-    "Arina_sheff"    # Арина
-]
+# Белый список пользователей (безлимит) - загружается из .env
+# Формат в .env: WHITELIST_USERNAMES=user1,user2,user3 (БЕЗ @)
+WHITELIST_USERNAMES = os.getenv("WHITELIST_USERNAMES", "").split(",") if os.getenv("WHITELIST_USERNAMES") else []
+WHITELIST_USERNAMES = [username.strip() for username in WHITELIST_USERNAMES if username.strip()]
+
+# Настройки бота из .env
+FREE_MESSAGE_LIMIT = int(os.getenv("FREE_MESSAGE_LIMIT", "25"))
+MIN_MESSAGE_COOLDOWN = int(os.getenv("MIN_MESSAGE_COOLDOWN", "3"))
 
 def init_db():
     """Инициализация базы данных"""
@@ -117,22 +123,38 @@ def can_send_message(user_id: int, username: str = None) -> bool:
     
     # Проверяем лимит сообщений
     user = get_user(user_id)
-    if user and user[2] < 25:
+    if user and user[2] < FREE_MESSAGE_LIMIT:
         return True
     
     return False
 
-def get_conversation_history(user_id: int):
-    """Получить историю разговора пользователя"""
+def get_conversation_history(user_id: int, limit: int = 8):
+    """
+    Получить последние N сообщений из истории разговора
+
+    Args:
+        user_id: ID пользователя
+        limit: Максимальное количество сообщений (по умолчанию 8)
+
+    Returns:
+        list: Список кортежей (role, content)
+    """
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT role, content FROM conversation_history WHERE user_id = ? ORDER BY timestamp",
-        (user_id,)
+        """
+        SELECT role, content
+        FROM conversation_history
+        WHERE user_id = ?
+        ORDER BY timestamp DESC
+        LIMIT ?
+        """,
+        (user_id, limit)
     )
     history = cursor.fetchall()
     conn.close()
-    return history
+    # Возвращаем в правильном порядке (старые сообщения сначала)
+    return list(reversed(history))
 
 def save_message(user_id: int, role: str, content: str):
     """Сохранить сообщение в историю"""
