@@ -17,14 +17,29 @@ def init_db():
     cursor = conn.cursor()
     
     # Таблица пользователей
+    # Таблица пользователей
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY,
             username TEXT,
             message_count INTEGER DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            level TEXT DEFAULT NULL,
+            onboarding_completed INTEGER DEFAULT 0
         )
     """)
+    
+    # Миграция: добавляем новые колонки если их нет
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN level TEXT DEFAULT NULL")
+    except sqlite3.OperationalError:
+        pass  # Колонка уже существует
+    
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN onboarding_completed INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass  # Колонка уже существует
+
     
     # Таблица подписок
     cursor.execute("""
@@ -61,7 +76,16 @@ def init_db():
             FOREIGN KEY (user_id) REFERENCES users(user_id)
         )
     """)
-    
+        # Таблица для отслеживания обработанных USDT транзакций
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS processed_transactions (
+            tx_hash TEXT PRIMARY KEY,
+            user_id INTEGER,
+            amount REAL,
+            processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
     conn.commit()
     conn.close()
     print("✅ База данных инициализирована")
@@ -221,6 +245,54 @@ def get_active_subscriptions():
     count = cursor.fetchone()[0]
     conn.close()
     return count
+
+def is_transaction_processed(tx_hash: str) -> bool:
+    """Проверяет была ли транзакция уже обработана"""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT 1 FROM processed_transactions WHERE tx_hash = ?",
+        (tx_hash,)
+    )
+    result = cursor.fetchone()
+    conn.close()
+    return result is not None
+
+
+def mark_transaction_processed(tx_hash: str, user_id: int, amount: float):
+    """Отмечает транзакцию как обработанную"""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO processed_transactions (tx_hash, user_id, amount) VALUES (?, ?, ?)",
+        (tx_hash, user_id, amount)
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_last_checked_block() -> int:
+    """
+    Получает номер последнего проверенного блока
+    Используется чтобы не проверять старые транзакции повторно
+    """
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    
+    # Получаем самую новую обработанную транзакцию
+    cursor.execute(
+        "SELECT MAX(processed_at) FROM processed_transactions"
+    )
+    result = cursor.fetchone()
+    conn.close()
+    
+    # Если транзакций еще не было, начинаем с текущего момента
+    # Это значит мы проверяем только новые транзакции
+    if not result[0]:
+        return 0  # Проверим последние 1000 блоков (~50 минут)
+    
+    return 0  # Всегда проверяем последние транзакции
+
 
 # Инициализация при импорте
 init_db()

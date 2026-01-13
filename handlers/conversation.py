@@ -16,8 +16,12 @@ from database import (
     get_user,
     create_user,
     can_send_message,
-    WHITELIST_USERNAMES
+    WHITELIST_USERNAMES,
+    FREE_MESSAGE_LIMIT,
+    is_onboarding_completed,
+    get_user_level
 )
+
 from services.ollama_service import get_ollama_response
 from services.whisper_service import transcribe_audio
 from services.tts_service import text_to_speech
@@ -138,6 +142,14 @@ async def handle_voice_message(message: Message):
     if not user:
         create_user(user_id, username or message.from_user.first_name)
     
+    # Проверяем онбординг
+    if not is_onboarding_completed(user_id):
+        await message.answer(
+            "Please complete the onboarding first! Use /start to begin.",
+            reply_markup=get_main_menu(user_id, username)
+        )
+        return
+    
     # ПРОВЕРЯЕМ ЛИМИТЫ С USERNAME
     if not can_send_message(user_id, username):
         await message.answer(
@@ -225,6 +237,14 @@ async def handle_text_message(message: Message):
     else:
         print(f"Пользователь найден: {user}")
     
+    # Проверяем онбординг
+    if not is_onboarding_completed(user_id):
+        await message.answer(
+            "Please complete the onboarding first! Use /start to begin.",
+            reply_markup=get_main_menu(user_id, username)
+        )
+        return
+    
     # ПРОВЕРЯЕМ ЛИМИТЫ С USERNAME
     print(f"Проверяю лимиты...")
     can_send = can_send_message(user_id, username)
@@ -240,6 +260,5 @@ async def handle_text_message(message: Message):
         )
         return
     
-    print(f"Лимиты ОК, обрабатываю сообщение...")
     # Обрабатываем сообщение
     await process_user_message(message, user_text)

@@ -1,0 +1,76 @@
+[2026-01-13 17:17:08] INFO     [english_tutor.main:25] - База данных инициализирована
+[2026-01-13 17:17:08] INFO     [english_tutor.main:39] - 🤖 Бот запущен и готов к работе!
+[2026-01-13 17:17:08] INFO     [english_tutor.payment_checker:92] - 🚀 Запущена автопроверка USDT платежей (каждые 5 минут)
+[2026-01-13 17:17:08] INFO     [english_tutor.payment_checker:39] - 🔍 Проверяю новые USDT транзакции...
+[2026-01-13 17:17:08] INFO     [english_tutor.bscscan:53] - Проверяю транзакции для кошелька 0x97aa6013...
+[2026-01-13 17:17:09] ERROR    [english_tutor.bscscan:62] - Ошибка BscScan API: NOTOK
+[2026-01-13 17:17:09] INFO     [english_tutor.payment_checker:45] - Новых платежей не найдено
+[2026-01-13 17:22:09] INFO     [english_tutor.payment_checker:39] - 🔍 Проверяю новые USDT транзакции...
+[2026-01-13 17:22:09] INFO     [english_tutor.bscscan:53] - Проверяю транзакции для кошелька 0x97aa6013...
+[2026-01-13 17:22:11] ERROR    [english_tutor.bscscan:62] - Ошибка BscScan API: NOTOK
+[2026-01-13 17:22:11] INFO     [english_tutor.payment_checker:45] - Новых платежей не найдено
+[2026-01-13 17:27:10] INFO     [english_tutor.main:25] - База данных инициализирована
+[2026-01-13 17:27:10] INFO     [english_tutor.main:39] - 🤖 Бот запущен и готов к работе!
+[2026-01-13 17:27:10] INFO     [english_tutor.payment_checker:92] - 🚀 Запущена автопроверка USDT платежей (каждые 5 минут)
+[2026-01-13 17:27:10] INFO     [english_tutor.payment_checker:39] - 🔍 Проверяю новые USDT транзакции...
+[2026-01-13 17:27:10] INFO     [english_tutor.bscscan:53] - Проверяю транзакции для кошелька 0x97aa6013...
+[2026-01-13 17:27:11] ERROR    [english_tutor.bscscan:62] - Ошибка BscScan API: NOTOK
+[2026-01-13 17:27:11] INFO     [english_tutor.payment_checker:45] - Новых платежей не найдено
+[2026-01-13 17:27:59] INFO     [english_tutor.main:25] - База данных инициализирована
+[2026-01-13 17:27:59] INFO     [english_tutor.main:39] - 🤖 Бот запущен и готов к работе!
+[2026-01-13 17:27:59] INFO     [english_tutor.payment_checker:92] - 🚀 Запущена автопроверка USDT платежей (каждые 5 минут)
+[2026-01-13 17:27:59] INFO     [english_tutor.payment_checker:39] - 🔍 Проверяю новые USDT транзакции...
+[2026-01-13 17:27:59] INFO     [english_tutor.bscscan:53] - Проверяю транзакции для кошелька 0x97aa6013...
+[2026-01-13 17:28:00] ERROR    [english_tutor.bscscan:62] - Ошибка BscScan API: NOTOK
+[2026-01-13 17:28:00] INFO     [english_tutor.payment_checker:45] - Новых платежей не найдено
+[2026-01-13 17:31:51] INFO     [english_tutor.main:25] - База данных инициализирована
+[2026-01-13 17:31:52] INFO     [english_tutor.main:39] - 🤖 Бот запущен и готов к работе!
+[2026-01-13 17:31:52] INFO     [english_tutor.payment_checker:92] - 🚀 Запущена автопроверка USDT платежей (каждые 5 минут)
+[2026-01-13 17:31:52] INFO     [english_tutor.payment_checker:39] - 🔍 Проверяю новые USDT транзакции...
+[2026-01-13 17:31:52] INFO     [english_tutor.bscscan:53] - Проверяю транзакции для кошелька 0x97aa6013...
+[2026-01-13 17:31:53] ERROR    [english_tutor.bscscan:62] - ❌ BscScan API Error Details:
+[2026-01-13 17:31:53] ERROR    [english_tutor.bscscan:63] -    Status: 0
+[2026-01-13 17:31:53] ERROR    [english_tutor.bscscan:64] -    Message: NOTOK
+[2026-01-13 17:31:53] ERROR    [english_tutor.bscscan:65] -    Result: You are using a deprecated V1 endpoint, switch to Etherscan API V2 using https://docs.etherscan.io/v2-migration
+[2026-01-13 17:31:53] ERROR    [english_tutor.bscscan:66] -    Full response: {'status': '0', 'message': 'NOTOK', 'result': 'You are using a deprecated V1 endpoint, switch to Etherscan API V2 using https://docs.etherscan.io/v2-migration'}
+[2026-01-13 17:31:53] INFO     [english_tutor.payment_checker:45] - Новых платежей не найдено
+[2026-01-13 17:34:34] INFO     [english_tutor.main:25] - База данных инициализирована
+[2026-01-13 17:34:35] INFO     [english_tutor.main:39] - 🤖 Бот запущен и готов к работе!
+[2026-01-13 17:34:35] INFO     [english_tutor.payment_checker:92] - 🚀 Запущена автопроверка USDT платежей (каждые 5 минут)
+[2026-01-13 17:34:35] INFO     [english_tutor.payment_checker:39] - 🔍 Проверяю новые USDT транзакции...
+[2026-01-13 17:34:35] INFO     [english_tutor.bscscan:57] - Проверяю транзакции для кошелька 0x97aa6013...
+[2026-01-13 17:34:36] ERROR    [english_tutor.bscscan:100] - Ошибка сети при запросе к BscScan: Expecting value: line 1 column 1 (char 0)
+[2026-01-13 17:34:36] INFO     [english_tutor.payment_checker:45] - Новых платежей не найдено
+[2026-01-13 17:36:22] INFO     [english_tutor.main:25] - База данных инициализирована
+[2026-01-13 17:36:23] INFO     [english_tutor.main:39] - 🤖 Бот запущен и готов к работе!
+[2026-01-13 17:36:23] INFO     [english_tutor.payment_checker:92] - 🚀 Запущена автопроверка USDT платежей (каждые 5 минут)
+[2026-01-13 17:36:23] INFO     [english_tutor.payment_checker:39] - 🔍 Проверяю новые USDT транзакции...
+[2026-01-13 17:36:23] INFO     [english_tutor.bscscan:57] - Проверяю транзакции для кошелька 0x97aa6013...
+[2026-01-13 17:36:24] INFO     [english_tutor.bscscan:62] - Response status: 404
+[2026-01-13 17:36:24] INFO     [english_tutor.bscscan:63] - Response text (first 500 chars): <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1"/>
+<title>404 - File or directory not found.</title>
+<style type="text/css">
+<!--
+body{margin:0;font-size:.7em;font-family:Verdana, Arial, Helvetica, sans-serif;background:#EEEEEE;}
+fieldset{padding:0 15px 10px 15px;} 
+h1{font-size:2.4em;margin:0;color:#FFF;}
+[2026-01-13 17:36:24] ERROR    [english_tutor.bscscan:106] - Ошибка сети при запросе к BscScan: Expecting value: line 1 column 1 (char 0)
+[2026-01-13 17:36:25] INFO     [english_tutor.payment_checker:45] - Новых платежей не найдено
+[2026-01-13 17:38:35] INFO     [english_tutor.main:25] - База данных инициализирована
+[2026-01-13 17:38:36] INFO     [english_tutor.main:39] - 🤖 Бот запущен и готов к работе!
+[2026-01-13 17:38:36] INFO     [english_tutor.payment_checker:92] - 🚀 Запущена автопроверка USDT платежей (каждые 5 минут)
+[2026-01-13 17:38:36] INFO     [english_tutor.payment_checker:39] - 🔍 Проверяю новые USDT транзакции...
+[2026-01-13 17:38:36] INFO     [english_tutor.bscscan:56] - Проверяю транзакции для кошелька 0x97aa6013...
+[2026-01-13 17:38:37] INFO     [english_tutor.bscscan:61] - Response status: 200
+[2026-01-13 17:38:37] INFO     [english_tutor.bscscan:62] - Response text (first 500 chars): {"status":"0","message":"NOTOK","result":"You are using a deprecated V1 endpoint, switch to Etherscan API V2 using https://docs.etherscan.io/v2-migration"}
+[2026-01-13 17:38:37] ERROR    [english_tutor.bscscan:71] - ❌ BscScan API Error Details:
+[2026-01-13 17:38:37] ERROR    [english_tutor.bscscan:72] -    Status: 0
+[2026-01-13 17:38:37] ERROR    [english_tutor.bscscan:73] -    Message: NOTOK
+[2026-01-13 17:38:37] ERROR    [english_tutor.bscscan:74] -    Result: You are using a deprecated V1 endpoint, switch to Etherscan API V2 using https://docs.etherscan.io/v2-migration
+[2026-01-13 17:38:37] ERROR    [english_tutor.bscscan:75] -    Full response: {'status': '0', 'message': 'NOTOK', 'result': 'You are using a deprecated V1 endpoint, switch to Etherscan API V2 using https://docs.etherscan.io/v2-migration'}
+[2026-01-13 17:38:37] INFO     [english_tutor.payment_checker:45] - Новых платежей не найдено
+[2026-01-13 17:44:51] INFO     [english_tutor.main:25] - База данных инициализирована
+[2026-01-13 17:44:51] INFO     [english_tutor.main:39] - 🤖 Бот запущен и готов к работе!
