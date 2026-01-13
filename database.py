@@ -28,9 +28,22 @@ def init_db():
             user_id INTEGER PRIMARY KEY,
             username TEXT,
             message_count INTEGER DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            level TEXT DEFAULT NULL,
+            onboarding_completed INTEGER DEFAULT 0
         )
     """)
+
+    # Миграция: добавляем новые колонки если их нет
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN level TEXT DEFAULT NULL")
+    except sqlite3.OperationalError:
+        pass  # Колонка уже существует
+
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN onboarding_completed INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass  # Колонка уже существует
     
     # Таблица подписок
     cursor.execute("""
@@ -243,6 +256,46 @@ def get_active_subscriptions():
     count = cursor.fetchone()[0]
     conn.close()
     return count
+
+def set_user_level(user_id: int, level: str):
+    """Установить уровень пользователя (A1, A2, B1, B2)"""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE users SET level = ? WHERE user_id = ?",
+        (level, user_id)
+    )
+    conn.commit()
+    conn.close()
+
+def get_user_level(user_id: int):
+    """Получить уровень пользователя"""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT level FROM users WHERE user_id = ?", (user_id,))
+    result = cursor.fetchone()
+    conn.close()
+    return result[0] if result else None
+
+def mark_onboarding_completed(user_id: int):
+    """Отметить онбординг как завершенный"""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE users SET onboarding_completed = 1 WHERE user_id = ?",
+        (user_id,)
+    )
+    conn.commit()
+    conn.close()
+
+def is_onboarding_completed(user_id: int) -> bool:
+    """Проверить завершен ли онбординг"""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT onboarding_completed FROM users WHERE user_id = ?", (user_id,))
+    result = cursor.fetchone()
+    conn.close()
+    return bool(result[0]) if result else False
 
 # Инициализация при импорте
 init_db()
