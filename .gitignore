@@ -1,0 +1,55 @@
+# Переменные окружения (НИКОГДА НЕ КОММИТИТЬ!)
+.env
+
+# База данных
+*.db
+*.sqlite
+*.sqlite3
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# Логи
+*.log
+logs/
+*.log.*
+
+# Временные файлы
+*.tmp
+*.temp
+temp/
+tmp/
+
+# Аудио файлы (генерируются ботом)
+*.ogg
+*.wav
+*.mp3
+output_*.wav
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Google Cloud
+*.json
+service-account*.json
+
+# Модели ML
+models/
+*.pth
+*.ckpt
