@@ -1,0 +1,6 @@
+aiogram==3.24.0
+openai-whisper
+google-cloud-texttospeech
+requests
+python-dotenv
+ffmpeg-python
