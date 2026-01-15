@@ -3,7 +3,7 @@ from database import has_active_subscription, WHITELIST_USERNAMES
 
 def get_main_menu(user_id=None, username=None):
     """Главное меню в зависимости от статуса"""
-    
+
     # VIP пользователи
     if username and username in WHITELIST_USERNAMES:
         keyboard = ReplyKeyboardMarkup(
@@ -13,7 +13,10 @@ def get_main_menu(user_id=None, username=None):
                     KeyboardButton(text="📈 Статистика")
                 ],
                 [
-                    KeyboardButton(text="🧠 Очистить память"),
+                    KeyboardButton(text="🎓 Изменить уровень"),
+                    KeyboardButton(text="🧠 Очистить память")
+                ],
+                [
                     KeyboardButton(text="❓ Помощь")
                 ]
             ],
@@ -29,7 +32,10 @@ def get_main_menu(user_id=None, username=None):
                     KeyboardButton(text="💎 Продлить Premium")
                 ],
                 [
-                    KeyboardButton(text="🧠 Очистить память"),
+                    KeyboardButton(text="🎓 Изменить уровень"),
+                    KeyboardButton(text="🧠 Очистить память")
+                ],
+                [
                     KeyboardButton(text="❓ Помощь")
                 ]
             ],
@@ -45,14 +51,17 @@ def get_main_menu(user_id=None, username=None):
                     KeyboardButton(text="💎 Купить Premium")
                 ],
                 [
-                    KeyboardButton(text="🧠 Очистить память"),
+                    KeyboardButton(text="🎓 Изменить уровень"),
+                    KeyboardButton(text="🧠 Очистить память")
+                ],
+                [
                     KeyboardButton(text="❓ Помощь")
                 ]
             ],
             resize_keyboard=True,
             persistent=True
         )
-    
+
     return keyboard
 
 def get_buy_menu():

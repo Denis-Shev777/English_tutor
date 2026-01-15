@@ -198,3 +198,21 @@ async def complete_onboarding(callback: CallbackQuery, level: str, last_correct:
     )
 
     await callback.message.answer(text, parse_mode="Markdown")
+
+@router.message(Command("change_level"))
+@router.message(F.text == "🎓 Изменить уровень")
+async def cmd_change_level(message: Message):
+    """Изменить уровень английского"""
+    user_id = message.from_user.id
+
+    text = (
+        "🎓 <b>Изменить уровень английского</b>\n\n"
+        "Выбери свой текущий уровень английского:\n\n"
+        f"<b>A1</b> - {LEVEL_DESCRIPTIONS['A1']}\n"
+        f"<b>A2</b> - {LEVEL_DESCRIPTIONS['A2']}\n"
+        f"<b>B1</b> - {LEVEL_DESCRIPTIONS['B1']}\n"
+        f"<b>B2</b> - {LEVEL_DESCRIPTIONS['B2']}\n\n"
+        "После выбора пройдешь короткий тест для подтверждения."
+    )
+
+    await message.answer(text, reply_markup=get_level_selection_keyboard())
