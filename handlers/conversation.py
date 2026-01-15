@@ -78,7 +78,12 @@ async def process_user_message(message: Message, user_text: str):
         text_parts.append(f"\n💡 {response_data['tip']}")
 
     full_text = "".join(text_parts)
-    english_part = response_data["reply"]  # Для TTS используем только reply
+
+    # Для TTS используем reply + question (без corrections и tips с эмодзи)
+    tts_parts = [response_data["reply"]]
+    if response_data.get("question"):
+        tts_parts.append(" " + response_data["question"])
+    english_part = "".join(tts_parts)
 
     # Создаем inline кнопки из quick_replies
     keyboard = None
