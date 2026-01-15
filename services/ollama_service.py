@@ -295,14 +295,42 @@ Teacher (respond ONLY with valid JSON):"""
                 print(f"JSON parse error: {e}")
                 print(f"Raw response: {raw_response}")
 
-                # Fallback: возвращаем простой ответ
-                return {
-                    "reply": raw_response if raw_response else "Sorry, I couldn't understand that.",
-                    "question": "",
-                    "quick_replies": [],
-                    "correction": "",
-                    "tip": ""
-                }
+                # FALLBACK: Парсим через регулярки
+                try:
+                    reply_match = re.search(r'"reply"\s*:\s*"?([^"]*?)"?\s*[,\n}]', raw_response, re.DOTALL)
+                    question_match = re.search(r'"question"\s*:\s*"?([^"]*?)"?\s*[,\n}]', raw_response, re.DOTALL)
+                    correction_match = re.search(r'"correction"\s*:\s*"?([^"]*?)"?\s*[,\n}]', raw_response, re.DOTALL)
+                    tip_match = re.search(r'"tip"\s*:\s*"?([^"]*?)"?\s*[,\n}]', raw_response, re.DOTALL)
+
+                    # Парсим quick_replies как массив
+                    quick_replies = []
+                    qr_match = re.search(r'"quick_replies"\s*:\s*\[(.*?)\]', raw_response, re.DOTALL)
+                    if qr_match:
+                        qr_str = qr_match.group(1)
+                        # Извлекаем все строки в кавычках
+                        quick_replies = re.findall(r'"([^"]+)"', qr_str)
+
+                    fallback_result = {
+                        "reply": reply_match.group(1).strip() if reply_match else raw_response[:200],
+                        "question": question_match.group(1).strip() if question_match else "",
+                        "quick_replies": quick_replies,
+                        "correction": correction_match.group(1).strip() if correction_match else "",
+                        "tip": tip_match.group(1).strip() if tip_match else ""
+                    }
+
+                    print(f"✅ Fallback parsing успешен: {fallback_result}")
+                    return fallback_result
+
+                except Exception as fallback_error:
+                    print(f"Fallback parsing failed: {fallback_error}")
+                    # Последний fallback - возвращаем простой ответ
+                    return {
+                        "reply": raw_response if raw_response else "Sorry, I couldn't understand that.",
+                        "question": "",
+                        "quick_replies": [],
+                        "correction": "",
+                        "tip": ""
+                    }
         else:
             print(f"Ollama API error: {response.status_code}")
             return {
