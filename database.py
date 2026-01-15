@@ -86,7 +86,20 @@ def init_db():
             FOREIGN KEY (user_id) REFERENCES users(user_id)
         )
     """)
-    
+
+    # Таблица рефералов
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS referrals (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            referrer_id INTEGER,
+            referred_id INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            bonus_given INTEGER DEFAULT 0,
+            FOREIGN KEY (referrer_id) REFERENCES users(user_id),
+            FOREIGN KEY (referred_id) REFERENCES users(user_id)
+        )
+    """)
+
     conn.commit()
     conn.close()
     print("✅ База данных инициализирована")
@@ -353,6 +366,64 @@ def get_level_stats():
     stats = cursor.fetchall()
     conn.close()
     return stats
+
+def add_referral(referrer_id: int, referred_id: int):
+    """Добавить реферала"""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO referrals (referrer_id, referred_id) VALUES (?, ?)",
+            (referrer_id, referred_id)
+        )
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"❌ Ошибка добавления реферала: {e}")
+        return False
+    finally:
+        conn.close()
+
+def get_user_by_referral_code(referral_code: str):
+    """Получить пользователя по реферальному коду"""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT user_id, username FROM users WHERE referral_code = ?", (referral_code,))
+    user = cursor.fetchone()
+    conn.close()
+    return user
+
+def get_referral_count(user_id: int):
+    """Получить количество рефералов пользователя"""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM referrals WHERE referrer_id = ?", (user_id,))
+    count = cursor.fetchone()[0]
+    conn.close()
+    return count
+
+def give_referral_bonus(referrer_id: int, referred_id: int, bonus_messages: int = 5):
+    """Начислить бонус за реферала"""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    try:
+        # Уменьшаем счетчик сообщений (даем бесплатные)
+        cursor.execute(
+            "UPDATE users SET message_count = CASE WHEN message_count - ? < 0 THEN 0 ELSE message_count - ? END WHERE user_id = ?",
+            (bonus_messages, bonus_messages, referrer_id)
+        )
+        # Отмечаем что бонус выдан
+        cursor.execute(
+            "UPDATE referrals SET bonus_given = 1 WHERE referrer_id = ? AND referred_id = ?",
+            (referrer_id, referred_id)
+        )
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"❌ Ошибка начисления бонуса: {e}")
+        return False
+    finally:
+        conn.close()
 
 # Инициализация при импорте
 init_db()

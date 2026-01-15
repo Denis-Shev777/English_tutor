@@ -19,7 +19,11 @@ from database import (
     FREE_MESSAGE_LIMIT,
     is_onboarding_completed,
     get_referral_code,
-    get_level_stats
+    get_level_stats,
+    get_user_by_referral_code,
+    add_referral,
+    give_referral_bonus,
+    get_referral_count
 )
 from handlers.keyboards import get_main_menu, get_buy_menu
 
@@ -31,11 +35,41 @@ async def cmd_start(message: Message):
     user_id = message.from_user.id
     username = message.from_user.username or message.from_user.first_name
 
+    # Проверяем есть ли реферальный код в команде
+    referral_code = None
+    if message.text and len(message.text.split()) > 1:
+        referral_code = message.text.split()[1]
+
     # Создаём пользователя если не существует
     user = get_user(user_id)
+    is_new_user = user is None
 
     if not user:
         create_user(user_id, username)
+
+    # Если новый пользователь пришел по реферальной ссылке
+    if is_new_user and referral_code:
+        referrer = get_user_by_referral_code(referral_code)
+        if referrer and referrer[0] != user_id:  # Проверяем что это не сам пользователь
+            referrer_id = referrer[0]
+            referrer_username = referrer[1]
+
+            # Добавляем реферала
+            if add_referral(referrer_id, user_id):
+                # Начисляем бонус рефереру (5 бесплатных сообщений)
+                give_referral_bonus(referrer_id, user_id, bonus_messages=5)
+
+                # Отправляем уведомление рефереру
+                try:
+                    from main import bot
+                    await message.bot.send_message(
+                        referrer_id,
+                        f"🎉 **Новый реферал!**\n\n"
+                        f"Пользователь @{username} присоединился по твоей ссылке!\n"
+                        f"🎁 Тебе начислено **+5 бесплатных сообщений**!"
+                    )
+                except:
+                    pass  # Если не удалось отправить уведомление - не критично
 
     # Проверяем онбординг
     if not is_onboarding_completed(user_id):
@@ -87,14 +121,27 @@ async def cmd_status(message: Message):
     # Белый список по username
     if username and username in WHITELIST_USERNAMES:
         referral_code = get_referral_code(user_id) or "N/A"
+        referral_count = get_referral_count(user_id)
+
+        # Получаем BOT_USERNAME из переменных окружения
+        import os
+        bot_username = os.getenv("BOT_USERNAME", "English_Tutor_bot")
+        referral_link = f"https://t.me/{bot_username}?start={referral_code}"
+
+        # Кнопка "Пригласить друга"
+        invite_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📤 Пригласить друга", url=f"https://t.me/share/url?url={referral_link}&text=Привет! Попробуй этого бота для изучения английского 🎓")]
+        ])
+
         await message.answer(
             "⭐ **VIP Статус**\n\n"
             "У вас безлимитный доступ!\n"
             "Использовано сообщений: ∞\n"
             "Подписка: Lifetime Premium 💎\n\n"
-            f"🎁 **Реферальный код:** `{referral_code}`\n"
-            "Поделись с друзьями!",
-            reply_markup=get_main_menu(user_id, username)
+            f"👥 **Приглашено друзей:** {referral_count}\n"
+            f"🎁 **Реферальная ссылка:**\n`{referral_link}`\n\n"
+            "Нажми кнопку ниже чтобы поделиться! ⬇️",
+            reply_markup=invite_keyboard
         )
         return
     
@@ -113,43 +160,69 @@ async def cmd_status(message: Message):
             time_left_str = f"{hours_left} часов" if hours_left > 1 else "1 час"
 
         referral_code = get_referral_code(user_id) or "N/A"
+        referral_count = get_referral_count(user_id)
+
+        # Получаем BOT_USERNAME из переменных окружения
+        import os
+        bot_username = os.getenv("BOT_USERNAME", "English_Tutor_bot")
+        referral_link = f"https://t.me/{bot_username}?start={referral_code}"
+
+        # Кнопка "Пригласить друга"
+        invite_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📤 Пригласить друга", url=f"https://t.me/share/url?url={referral_link}&text=Привет! Попробуй этого бота для изучения английского 🎓")]
+        ])
 
         await message.answer(
             f"✅ **Premium Активен**\n\n"
             f"Статус: Premium 💎\n"
             f"Истекает: {expires.strftime('%Y-%m-%d %H:%M')}\n"
             f"Осталось: {time_left_str}\n\n"
-            f"🎁 **Реферальный код:** `{referral_code}`\n"
-            f"Поделись с друзьями и получи бонусы!",
-            reply_markup=get_main_menu(user_id, username)
+            f"👥 **Приглашено друзей:** {referral_count}\n"
+            f"🎁 **Реферальная ссылка:**\n`{referral_link}`\n\n"
+            f"Пригласи друзей и получи бонусы!\n"
+            f"За каждого друга: **+5 бесплатных сообщений**",
+            reply_markup=invite_keyboard
         )
     else:
         messages_used = user[2]
         messages_left = FREE_MESSAGE_LIMIT - messages_used
         referral_code = get_referral_code(user_id) or "N/A"
+        referral_count = get_referral_count(user_id)
+
+        # Получаем BOT_USERNAME из переменных окружения
+        import os
+        bot_username = os.getenv("BOT_USERNAME", "English_Tutor_bot")
+        referral_link = f"https://t.me/{bot_username}?start={referral_code}"
+
+        # Кнопка "Пригласить друга"
+        invite_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📤 Пригласить друга", url=f"https://t.me/share/url?url={referral_link}&text=Привет! Попробуй этого бота для изучения английского 🎓")]
+        ])
 
         if messages_left > 0:
             await message.answer(
                 f"📊 **Бесплатный тариф**\n\n"
                 f"Использовано: {messages_used}/25\n"
                 f"Осталось: {messages_left}\n\n"
-                f"🎁 **Реферальный код:** `{referral_code}`\n"
-                f"Пригласи друзей и получи бонусы!\n\n"
+                f"👥 **Приглашено друзей:** {referral_count}\n"
+                f"🎁 **Реферальная ссылка:**\n`{referral_link}`\n\n"
+                f"Пригласи друга и получи **+5 бесплатных сообщений**!\n\n"
                 f"Хочешь безлимит?\n"
-                f"Premium всего **100 Stars/неделю**!\n\n"
-                f"Нажми кнопку ниже для апгрейда! ⬇️",
-                reply_markup=get_main_menu(user_id, username)
+                f"Premium всего **100 Stars/неделю**!",
+                reply_markup=invite_keyboard
             )
         else:
             await message.answer(
                 f"🚫 **Бесплатные сообщения закончились**\n\n"
                 f"Вы использовали все 25 бесплатных сообщений.\n\n"
-                f"Получи премиум доступ:\n"
-                f"⭐ **100 Stars** - 1 неделя\n"
-                f"💵 **1.5 USDT (BEP-20)** - 1 неделя\n\n"
-                f"🎁 **Реферальный код:** `{referral_code}`\n\n"
-                f"Нажми кнопку ниже! ⬇️",
-                reply_markup=get_main_menu(user_id, username)
+                f"**Получи больше сообщений:**\n"
+                f"1️⃣ Пригласи друга → **+5 сообщений**\n"
+                f"2️⃣ Купи Premium → **Безлимит**\n\n"
+                f"👥 **Приглашено друзей:** {referral_count}\n"
+                f"🎁 **Реферальная ссылка:**\n`{referral_link}`\n\n"
+                f"⭐ **100 Stars** - 1 неделя Premium\n"
+                f"💵 **1.5 USDT (BEP-20)** - 1 неделя Premium",
+                reply_markup=invite_keyboard
             )
 
 @router.message(F.text == "💎 Купить Premium")
