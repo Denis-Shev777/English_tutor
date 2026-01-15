@@ -31,7 +31,8 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             level TEXT DEFAULT NULL,
             onboarding_completed INTEGER DEFAULT 0,
-            referral_code TEXT DEFAULT NULL
+            referral_code TEXT DEFAULT NULL,
+            last_referral_sent TIMESTAMP DEFAULT NULL
         )
     """)
 
@@ -48,6 +49,11 @@ def init_db():
 
     try:
         cursor.execute("ALTER TABLE users ADD COLUMN referral_code TEXT DEFAULT NULL")
+    except sqlite3.OperationalError:
+        pass  # Колонка уже существует
+
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN last_referral_sent TIMESTAMP DEFAULT NULL")
     except sqlite3.OperationalError:
         pass  # Колонка уже существует
     
@@ -402,25 +408,96 @@ def get_referral_count(user_id: int):
     conn.close()
     return count
 
-def give_referral_bonus(referrer_id: int, referred_id: int, bonus_messages: int = 5):
-    """Начислить бонус за реферала"""
+def give_referral_bonus(referrer_id: int, referrer_username: str, referred_id: int):
+    """
+    Начислить бонус за реферала
+    - Premium реферер: +1 день подписки ему, +50 сообщений другу
+    - VIP реферер: ничего ему (уже безлимит), +50 сообщений другу
+    """
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     try:
-        # Уменьшаем счетчик сообщений (даем бесплатные)
+        # Даем новому пользователю +50 сообщений
+        bonus_messages = 50
         cursor.execute(
             "UPDATE users SET message_count = CASE WHEN message_count - ? < 0 THEN 0 ELSE message_count - ? END WHERE user_id = ?",
-            (bonus_messages, bonus_messages, referrer_id)
+            (bonus_messages, bonus_messages, referred_id)
         )
+
+        # Проверяем статус реферера
+        # Если не в whitelist - значит Premium, даем +1 день подписки
+        if referrer_username not in WHITELIST_USERNAMES:
+            # Получаем текущую подписку
+            cursor.execute("SELECT expires_at FROM subscriptions WHERE user_id = ?", (referrer_id,))
+            sub = cursor.fetchone()
+
+            if sub:
+                # Есть подписка - добавляем 1 день
+                current_expires = datetime.fromisoformat(sub[0])
+                new_expires = current_expires + timedelta(days=1)
+                cursor.execute(
+                    "UPDATE subscriptions SET expires_at = ? WHERE user_id = ?",
+                    (new_expires.isoformat(), referrer_id)
+                )
+
         # Отмечаем что бонус выдан
         cursor.execute(
             "UPDATE referrals SET bonus_given = 1 WHERE referrer_id = ? AND referred_id = ?",
             (referrer_id, referred_id)
         )
+
         conn.commit()
         return True
     except Exception as e:
         print(f"❌ Ошибка начисления бонуса: {e}")
+        return False
+    finally:
+        conn.close()
+
+def can_send_referral(user_id: int, username: str):
+    """
+    Проверить может ли пользователь отправлять реферальную ссылку
+    Условия:
+    - Должен быть Premium или VIP
+    - Не отправлял рефку за последнюю неделю
+    """
+    # Проверяем что пользователь VIP или Premium
+    is_vip = username and username in WHITELIST_USERNAMES
+    is_premium = has_active_subscription(user_id)
+
+    if not (is_vip or is_premium):
+        return False, "Реферальная программа доступна только Premium и VIP пользователям"
+
+    # Проверяем когда последний раз отправлял
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT last_referral_sent FROM users WHERE user_id = ?", (user_id,))
+    result = cursor.fetchone()
+    conn.close()
+
+    if result and result[0]:
+        last_sent = datetime.fromisoformat(result[0])
+        week_ago = datetime.now() - timedelta(days=7)
+
+        if last_sent > week_ago:
+            days_left = 7 - (datetime.now() - last_sent).days
+            return False, f"Следующую рефку можно отправить через {days_left} дней"
+
+    return True, "OK"
+
+def update_last_referral_sent(user_id: int):
+    """Обновить время последней отправки реферальной ссылки"""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "UPDATE users SET last_referral_sent = ? WHERE user_id = ?",
+            (datetime.now().isoformat(), user_id)
+        )
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"❌ Ошибка обновления last_referral_sent: {e}")
         return False
     finally:
         conn.close()
