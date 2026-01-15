@@ -29,6 +29,7 @@ from database import (
     user_get,
     has_active_subscription,
 )
+from services.ollama_service import get_dynamic_suggestions
 
 from services.ollama_service import get_ollama_response
 from services.whisper_service import transcribe_audio
@@ -50,18 +51,142 @@ RATE_LIMIT_SECONDS = 3
 SUGGESTIONS_CACHE: dict[int, dict[str, str]] = {}
 
 
+def extract_question_for_suggestions(bot_text: str) -> str:
+    """
+    Берём вопрос учителя из ответа модели.
+    Приоритет: строка 'Question: ...'
+    Фолбэк: последняя строка с '?'
+    """
+    if not bot_text:
+        return ""
+
+    # 1) Question: ...
+    for line in bot_text.splitlines():
+        if line.strip().lower().startswith("question:"):
+            q = line.split(":", 1)[1].strip()
+            return q
+
+    # 2) last line with '?'
+    lines = [ln.strip() for ln in bot_text.splitlines() if ln.strip()]
+    for ln in reversed(lines):
+        if "?" in ln:
+            return ln
+
+    return ""
+
+
 # phrases = [p.strip() for p in phrases if isinstance(p, str) and p.strip()]
 
 
-def build_suggestions_inline(phrases: list[str]) -> InlineKeyboardMarkup:
+def normalize_suggestion_phrases(raw) -> list[str]:
+    """
+    Приводит результат get_dynamic_suggestions к списку коротких фраз.
+    Поддерживает случаи:
+    - list[str]
+    - JSON строка: ["...","..."]
+    - Python-list строка: ['...','...']
+    - Одна длинная строка с несколькими вариантами (по строкам/кавычкам/точкам с запятой)
+    """
+    if raw is None:
+        return []
+
+    phrases = raw
+
+    # Если пришла строка — попробуем распарсить как список
+    if isinstance(phrases, str):
+        s = phrases.strip()
+
+        # JSON / python literal list
+        if (s.startswith("[") and s.endswith("]")) or (
+            s.startswith("(") and s.endswith(")")
+        ):
+            # сначала JSON
+            try:
+                phrases = json.loads(s)
+            except Exception:
+                # затем literal_eval (поддержит одинарные кавычки)
+                try:
+                    phrases = ast.literal_eval(s)
+                except Exception:
+                    phrases = s
+        else:
+            phrases = s
+
+    # Если после парсинга это не список — попробуем разрезать строку
+    if isinstance(phrases, str):
+        s = phrases.strip()
+
+        # вытащим все "..." или '...'
+        quoted = re.findall(r'"([^"]+)"|\'([^\']+)\'', s)
+        if quoted:
+            extracted = []
+            for a, b in quoted:
+                t = (a or b or "").strip()
+                if t:
+                    extracted.append(t)
+            phrases = extracted
+        else:
+            # делим по переводам строк / точкам с запятой
+            if "\n" in s:
+                parts = [x.strip(" -•\t").strip() for x in s.splitlines() if x.strip()]
+                phrases = parts
+            elif ";" in s:
+                phrases = [x.strip() for x in s.split(";") if x.strip()]
+            else:
+                # делим по запятым только если выглядит как перечисление (есть 2+ запятых)
+                if s.count(",") >= 2:
+                    phrases = [x.strip() for x in s.split(",") if x.strip()]
+                else:
+                    phrases = [s] if s else []
+
+    # Финальная чистка
+    if not isinstance(phrases, list):
+        return []
+
+    cleaned = []
+    for p in phrases:
+        if not isinstance(p, str):
+            continue
+        t = p.strip()
+        if not t:
+            continue
+        # убираем обрамляющие кавычки
+        t = t.strip('"')
+
+        # очень длинные варианты режем (чтобы не было "полотна" в кнопке)
+        if len(t) > 80:
+            t = t[:77] + "…"
+        cleaned.append(t)
+
+    # уникализируем, максимум 4
+    uniq = []
+    seen = set()
+    for t in cleaned:
+        key = t.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        uniq.append(t)
+        if len(uniq) >= 4:
+            break
+
+    return uniq
+
+
+def build_suggestions_inline(
+    phrases: list[str], message_id: int
+) -> InlineKeyboardMarkup:
     keyboard = []
-    for phrase in phrases[:4]:
-        # Ограничиваем длину callback_data (макс. 64 байта)
-        safe_phrase = phrase[:50].replace(":", "").strip()
-        if safe_phrase:
-            keyboard.append(
-                [InlineKeyboardButton(text=phrase, callback_data=f"sugg:{safe_phrase}")]
-            )
+
+    for idx, phrase in enumerate(phrases[:4]):  # максимум 4 кнопки
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    text=phrase, callback_data=f"sugg:{message_id}:{idx}"
+                )
+            ]
+        )
+
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
@@ -89,45 +214,33 @@ def extract_english_for_tts(text: str) -> str:
 async def process_user_message(message: Message, user_text: str):
     user_id = message.from_user.id
     username = message.from_user.username
+
     bot = message.bot
 
     history = get_conversation_history(user_id)
     await bot.send_chat_action(user_id, ChatAction.TYPING)
     await asyncio.sleep(random.uniform(1.5, 3.0))
 
-    # --- Получаем уровень пользователя ---
+    # --- user level (must exist in all branches) ---
     user_level = "A1"
     user = get_user(user_id)
     if user and len(user) > 4 and user[4]:
         user_level = user[4]
 
-    # --- Запрос к LLM (теперь возвращает dict) ---
-    response_data = get_ollama_response(user_text, history, level=user_level or "A1")
+    bot_response = get_ollama_response(user_text, history, level=user_level or "A1")
+    # Убираем служебные метки, чтобы ответы выглядели естественно
+    bot_response = re.sub(r"(?mi)^\s*Correct:\s*", "", bot_response)
+    bot_response = re.sub(r"(?mi)^\s*Tip:\s*", "", bot_response)
+    bot_response = re.sub(r"\n{3,}", "\n\n", bot_response).strip()
 
-    # --- Извлекаем компоненты ---
-    reply = response_data.get("reply", "").strip()
-    question = response_data.get("question")
-    quick_replies = response_data.get("quick_replies", [])
-    correction = response_data.get("correction")
-    tip = response_data.get("tip")
+    clean_text = bot_response.replace("Question:", "").strip()
 
-    # --- Формируем финальный текст ---
-    parts = []
-    if correction:
-        parts.append(f"✅ {correction}")
-    if reply:
-        parts.append(reply)
-    if question:
-        parts.append(question)
-    full_text = "\n".join(parts).strip()
-
-    # --- Сохраняем в историю ---
     save_message(user_id, "user", user_text)
-    save_message(user_id, "assistant", full_text)
+    save_message(user_id, "assistant", bot_response)
     increment_message_count(user_id, username)
 
-    # --- STREAK ---
-    user_data = user
+    # STREAK
+    user_data = user  # используем то, что уже получили выше
     if user_data and len(user_data) >= 8:
         last_active = user_data[6]
         current_streak = user_data[7] or 0
@@ -141,68 +254,96 @@ async def process_user_message(message: Message, user_text: str):
             new_streak = 1
         update_user_streak(user_id, new_streak, today_str)
 
-    # --- TTS: только английский текст ---
-    tts_text = extract_english_for_tts(reply + (" " + question if question else ""))
+    # Ответ
+    if "---" in bot_response:
+        english_part = bot_response.split("---", 1)[0].strip()
+        full_text = clean_text
+    else:
+        english_part = bot_response
+        full_text = clean_text
 
-    # --- Отправляем голос (если есть) ---
-    audio_path = None
-    if tts_text:
-        try:
-            await bot.send_chat_action(user_id, ChatAction.RECORD_VOICE)
-            await asyncio.sleep(random.uniform(2.0, 4.0))
-            audio_path = text_to_speech(tts_text)
-            if audio_path:
-                audio_file = FSInputFile(audio_path)
-                await message.answer_voice(audio_file)
-                await asyncio.sleep(0.5)
-        except Exception as e:
-            logger.error(f"Error generating voice: {e}", exc_info=True)
+    await asyncio.sleep(random.uniform(0.5, 1.0))
+    await bot.send_chat_action(user_id, ChatAction.RECORD_VOICE)
+    try:
+        await asyncio.sleep(random.uniform(2.0, 4.0))
+        tts_text = extract_english_for_tts(english_part)
+        audio_path = text_to_speech(tts_text)
 
-    # --- Готовим клавиатуру для quick replies (только A1/A2 и если есть вопрос) ---
-    quick_reply_kb = None
-    if user_level in ["A1", "A2"] and question and quick_replies:
-        # Очищаем и ограничиваем
-        clean_phrases = []
-        for p in quick_replies[:4]:
-            if isinstance(p, str):
-                t = p.strip()
-                if t and len(t) <= 35:
-                    clean_phrases.append(t)
-        if clean_phrases:
-            SUGGESTIONS_CACHE[message.message_id] = {
-                str(i): clean_phrases[i] for i in range(len(clean_phrases))
-            }
-            quick_reply_kb = build_suggestions_inline(clean_phrases)
+        if audio_path:
+            audio_file = FSInputFile(audio_path)
+            await message.answer_voice(audio_file)
+            await asyncio.sleep(0.5)
+            await message.answer(
+                full_text, reply_markup=get_main_menu(user_id, username)
+            )
+            try:
+                os.remove(audio_path)
+            except:
+                pass
+        else:
+            await message.answer(
+                full_text, reply_markup=get_main_menu(user_id, username)
+            )
+    except Exception as e:
+        logger.error(f"Error generating voice: {e}", exc_info=True)
+        await message.answer(full_text, reply_markup=get_main_menu(user_id, username))
 
-    # --- Отправляем основной текст с клавиатурой (если есть) ---
-    main_kb = get_main_menu(user_id, username)
-    final_kb = quick_reply_kb or main_kb
-
-    await message.answer(full_text, reply_markup=final_kb)
-
-    # --- Удаляем временный аудиофайл ---
-    if audio_path:
-        try:
-            os.remove(audio_path)
-        except:
-            pass
-
-    # --- Предупреждение о лимите (FREE) ---
+    # Статус
+    # Статус (предупреждение о лимите) — с учетом бонуса
     if not (username and username in WHITELIST_USERNAMES) and user_data:
-        if not has_active_subscription(user_id):
+
+        # Premium — предупреждение не показываем
+        if has_active_subscription(user_id):
+            pass
+        else:
             FREE_LIMIT = int(os.getenv("FREE_MESSAGE_LIMIT", "25"))
             used = int(user_get(user_data, "message_count", 0))
             bonus = int(user_get(user_data, "messages_count", 0))
             total = FREE_LIMIT + max(bonus, 0)
+
             messages_left = total - used
             if 0 < messages_left <= 5:
                 await message.answer(
                     f"You have {messages_left} free messages left.\n"
                     f"Press button below to get unlimited access!",
-                    reply_markup=main_kb,
+                    reply_markup=get_main_menu(user_id, username),
                 )
 
-    # --- Streak уведомление ---
+    # Контекстные подсказки для A1–A2 (только если есть вопрос от бота)
+    user_level = user_data[4] if user_data and len(user_data) > 4 else None
+    if user_level in ["A1", "A2"]:
+        question = extract_question_for_suggestions(bot_response)
+
+        # если вопроса нет — не показываем клавиатуру (чтобы не раздражала)
+        if question:
+            phrases = []
+            try:
+                # Пытаемся вызвать с именованными аргументами (если так устроена функция)
+                phrases = get_dynamic_suggestions(question=question, level=user_level)
+            except TypeError:
+                # Фолбэк: если сигнатура другая
+                try:
+                    phrases = get_dynamic_suggestions(question, user_level)
+                except TypeError:
+                    phrases = get_dynamic_suggestions(question)
+
+            # нормализация подсказок
+            phrases = normalize_suggestion_phrases(phrases)
+
+            if phrases:
+                # Кешируем по message_id пользовательского сообщения,
+                # чтобы callback точно мог найти нужные варианты
+                SUGGESTIONS_CACHE[message.message_id] = {
+                    str(i): phrases[i] for i in range(min(4, len(phrases)))
+                }
+
+                await message.reply(
+                    "💡 Quick replies:",
+                    reply_markup=build_suggestions_inline(phrases, message.message_id),
+                )
+
+    # Streak уведомление
+
     if "last_active" in locals() and last_active != today_str:
         days = new_streak
         if days % 10 == 1 and days % 100 != 11:
@@ -397,22 +538,31 @@ async def handle_text_message(message: Message):
 
 @router.callback_query(F.data.startswith("sugg:"))
 async def on_suggestion_click(callback: CallbackQuery):
-    """Обработка нажатия на inline-подсказку (без кеша)"""
+    """Обработка нажатия на inline-подсказку"""
     await callback.answer()
+
     try:
-        # sugg:{text}
-        text = callback.data[5:]  # убираем "sugg:"
-        if not text:
-            raise ValueError("empty text")
+        _, mid_str, idx = callback.data.split(":", 2)
+        mid = int(mid_str)
     except Exception:
-        await callback.answer("Invalid button. Please send a new message.")
+        await callback.answer("Outdated button. Send a message again.")
         return
 
-    # Удаляем клавиатуру
+    mapping = SUGGESTIONS_CACHE.get(mid, {})
+    text = mapping.get(idx, "")
+
+    if not text:
+        await callback.answer("Outdated button. Send a message again.")
+        return
+
+    # убираем кнопки, чтобы не тыкали 100 раз
     try:
         await callback.message.edit_reply_markup(reply_markup=None)
     except Exception:
         pass
 
-    # Обрабатываем как обычное сообщение
+    # очищаем кеш для этого сообщения
+    SUGGESTIONS_CACHE.pop(mid, None)
+
+    # дальше обрабатываем как обычный текст
     await process_user_message(callback.message, text)

@@ -3,9 +3,12 @@ from aiogram.types import Message, LabeledPrice, PreCheckoutQuery, InlineKeyboar
 from aiogram.filters import Command
 import sys
 import os
+import sqlite3
+from database import DB_NAME
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from database import activate_subscription, save_payment, get_user, set_referral_code
+from database import activate_subscription, save_payment, get_user
 from handlers.keyboards import get_main_menu, get_buy_menu, get_stars_help_menu
 
 router = Router()
@@ -13,11 +16,6 @@ router = Router()
 STARS_PRICE = 100
 USDT_PRICE = 1.5
 USDT_WALLET = os.getenv("USDT_WALLET_ADDRESS", "")
-
-def generate_referral_code():
-    """6-символьный реферальный код (A-Z0-9)"""
-    import random, string
-    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
 
 @router.callback_query(F.data == "pay_stars")
 async def callback_pay_stars(callback: CallbackQuery):
@@ -226,11 +224,15 @@ async def successful_payment_handler(message: Message):
         status="completed"
     )
     
-    # === ГЕНЕРИРУЕМ И СОХРАНЯЕМ РЕФЕРАЛЬНЫЙ КОД ===
+    # === ГЕНЕРИРУЕМ РЕФЕРАЛЬНЫЙ КОД ===
     referral_code = generate_referral_code()
-    set_referral_code(user_id, referral_code)
-
-# === ОДНО СООБЩЕНИЕ ===
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("UPDATE users SET referral_code = ? WHERE user_id = ?", (referral_code, user_id))
+    conn.commit()
+    conn.close()
+    
+    # === ОДНО СООБЩЕНИЕ ===
     await message.answer(
         f"Оплата прошла успешно!\n\n"
         f"Твоя Premium подписка активна!\n"

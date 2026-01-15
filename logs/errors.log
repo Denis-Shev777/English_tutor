@@ -14,3 +14,12 @@
 [2026-01-13 17:38:37] ERROR    [english_tutor.bscscan:73] -    Message: NOTOK
 [2026-01-13 17:38:37] ERROR    [english_tutor.bscscan:74] -    Result: You are using a deprecated V1 endpoint, switch to Etherscan API V2 using https://docs.etherscan.io/v2-migration
 [2026-01-13 17:38:37] ERROR    [english_tutor.bscscan:75] -    Full response: {'status': '0', 'message': 'NOTOK', 'result': 'You are using a deprecated V1 endpoint, switch to Etherscan API V2 using https://docs.etherscan.io/v2-migration'}
+[2026-01-14 14:22:46] ERROR    [english_tutor.main:27] - Ошибка инициализации БД: database is locked
+[2026-01-14 14:27:34] ERROR    [english_tutor.main:27] - Ошибка инициализации БД: database is locked
+[2026-01-14 14:28:34] ERROR    [english_tutor.main:27] - Ошибка инициализации БД: database is locked
+[2026-01-14 15:07:05] ERROR    [english_tutor.main:22] - Ошибка инициализации БД: database is locked
+[2026-01-15 19:20:51] ERROR    [english_tutor.services.ollama_service:1040] - Failed to parse LLM JSON response: Expecting value: line 2 column 10 (char 11). Raw: {
+"reply": You like dogs? That's cool! What kind of things do they do?
+"question": Can you tell me more about your favorite breed?
+"quick_replies": ["Cool", "Like", "Pet"]
+}...
