@@ -165,43 +165,26 @@ COMMON_WORDS = {
 
 SYSTEM_PROMPT = """You are a friendly and encouraging English teacher helping Russian speakers improve their conversational English.
 
-Your approach:
-- Speak naturally and conversationally in ENGLISH only
-- ALWAYS notice and correct grammar mistakes naturally
-- Keep responses concise (2-3 sentences max)
-- Focus on practical, everyday English
+CRITICAL: You MUST respond ONLY with valid JSON in this exact format:
+{
+  "reply": "your natural English response",
+  "question": "optional follow-up question to continue conversation",
+  "quick_replies": ["option 1", "option 2", "option 3"],
+  "correction": "if user made grammar mistake, show corrected version here",
+  "tip": "optional grammar tip in Russian"
+}
 
-CRITICAL - ERROR CORRECTION:
-When you see grammatical errors, correct them naturally in your response.
+EXAMPLE of valid JSON:
+{"reply": "Hi there!", "question": "How are you?", "quick_replies": ["I'm fine", "Not bad", "Great"], "correction": "", "tip": ""}
 
-CRITICAL - VOCABULARY TRANSLATION:
-
-When student asks about word meaning, ALWAYS provide Russian translation using this format:
-
----
-Perevod: word - natural Russian translation
-Primer: Simple English example (Russian translation)
-
-Examples:
-
-Student: What does neither mean?
-Teacher: Neither means not one and not the other!
-
----
-Perevod: neither - ни то, ни другое
-Primer: Neither option works. (Ни один вариант не подходит.)
-
-Student: What is cat?
-Teacher: A cat is a small furry animal that people keep as a pet!
-
----
-Perevod: cat - кошка
-Primer: I have a cat at home. (У меня есть кошка дома.)
-
-IMPORTANT RULES:
-- DO NOT add meta-commentary in parentheses
-- Just answer naturally
-- DO NOT greet in every response"""
+RULES:
+1. ALL strings must be in double quotes
+2. quick_replies should have 2-4 short options (max 20 characters each)
+3. For A1/A2 students: always provide simple quick_replies
+4. For vocabulary questions, add Russian translation in tip field
+5. Keep reply concise (2-3 sentences)
+6. NO meta-commentary, NO parentheses explanations
+7. Output ONLY valid JSON, nothing else"""
 
 def check_word_and_suggest(user_text: str):
     """Проверяет слово и предлагает варианты если не найдено"""
@@ -226,32 +209,49 @@ def check_word_and_suggest(user_text: str):
     
     return None
 
-def get_ollama_response(user_text: str, history: list = None):
-    """Получить ответ от LLaMA"""
-    
-    suggestion = check_word_and_suggest(user_text)
-    if suggestion:
-        return suggestion
-    
+def get_ollama_response(user_text: str, history: list = None, user_level: str = None):
+    """
+    Получить ответ от LLaMA в JSON формате
+
+    Returns:
+        dict: {
+            "reply": str,
+            "question": str,
+            "quick_replies": list,
+            "correction": str,
+            "tip": str
+        }
+    """
+
+    # Формируем историю разговора
     conversation = ""
     if history:
         for role, content in history[-8:]:
             if role == "user":
                 conversation += f"\nStudent: {content}"
             else:
-                conversation += f"\nTeacher: {content}"
-    
+                # Если в истории JSON, извлекаем только reply
+                if isinstance(content, str) and content.startswith("{"):
+                    try:
+                        parsed = json.loads(content)
+                        conversation += f"\nTeacher: {parsed.get('reply', content)}"
+                    except:
+                        conversation += f"\nTeacher: {content}"
+                else:
+                    conversation += f"\nTeacher: {content}"
+
     current_date = datetime.now().strftime("%A, %B %d, %Y")
-    
+    level_note = f"\nStudent level: {user_level}" if user_level else ""
+
     full_prompt = f"""{SYSTEM_PROMPT}
 
-IMPORTANT: Today's date is {current_date}.
+IMPORTANT: Today's date is {current_date}.{level_note}
 
 Conversation history:{conversation}
 
 Student: {user_text}
-Teacher:"""
-    
+Teacher (respond ONLY with valid JSON):"""
+
     try:
         response = requests.post(
             OLLAMA_API_URL,
@@ -262,29 +262,63 @@ Teacher:"""
                 "options": {
                     "temperature": 0.5,
                     "top_p": 0.9,
-                    "max_tokens": 250
+                    "max_tokens": 300
                 }
             },
             timeout=30
         )
-        
+
         if response.status_code == 200:
             result = response.json()
-            bot_response = result.get("response", "").strip()
-            
-            bot_response = re.sub(r'\(Note:.*?\)', '', bot_response, flags=re.DOTALL)
-            bot_response = re.sub(r'\(I corrected.*?\)', '', bot_response, flags=re.DOTALL)
-            bot_response = bot_response.strip()
-            
-            if "Perevod: None" in bot_response or "Primer: None" in bot_response:
-                if "---" in bot_response:
-                    bot_response = bot_response.split("---")[0].strip()
-            
-            return bot_response
+            raw_response = result.get("response", "").strip()
+
+            # Пытаемся распарсить JSON
+            try:
+                # Убираем возможный мусор до/после JSON
+                json_match = re.search(r'\{.*\}', raw_response, re.DOTALL)
+                if json_match:
+                    json_str = json_match.group(0)
+                    parsed = json.loads(json_str)
+
+                    # Проверяем обязательные поля
+                    return {
+                        "reply": parsed.get("reply", ""),
+                        "question": parsed.get("question", ""),
+                        "quick_replies": parsed.get("quick_replies", []),
+                        "correction": parsed.get("correction", ""),
+                        "tip": parsed.get("tip", "")
+                    }
+                else:
+                    raise ValueError("No JSON found in response")
+
+            except (json.JSONDecodeError, ValueError) as e:
+                print(f"JSON parse error: {e}")
+                print(f"Raw response: {raw_response}")
+
+                # Fallback: возвращаем простой ответ
+                return {
+                    "reply": raw_response if raw_response else "Sorry, I couldn't understand that.",
+                    "question": "",
+                    "quick_replies": [],
+                    "correction": "",
+                    "tip": ""
+                }
         else:
             print(f"Ollama API error: {response.status_code}")
-            return "Sorry, I'm having trouble connecting right now. Please try again!"
-            
+            return {
+                "reply": "Sorry, I'm having trouble connecting right now. Please try again!",
+                "question": "",
+                "quick_replies": [],
+                "correction": "",
+                "tip": ""
+            }
+
     except Exception as e:
         print(f"Error calling Ollama: {e}")
-        return "Sorry, something went wrong. Please try again!"
+        return {
+            "reply": "Sorry, something went wrong. Please try again!",
+            "question": "",
+            "quick_replies": [],
+            "correction": "",
+            "tip": ""
+        }

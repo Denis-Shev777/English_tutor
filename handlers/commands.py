@@ -1,6 +1,6 @@
 from aiogram import Router, F
 from aiogram.filters import Command
-from aiogram.types import Message
+from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 import sys
 import os
 from datetime import datetime
@@ -16,7 +16,8 @@ from database import (
     WHITELIST_USERNAMES,
     get_total_users,
     get_active_subscriptions,
-    FREE_MESSAGE_LIMIT
+    FREE_MESSAGE_LIMIT,
+    is_onboarding_completed
 )
 from handlers.keyboards import get_main_menu, get_buy_menu
 
@@ -27,22 +28,34 @@ async def cmd_start(message: Message):
     """Команда /start"""
     user_id = message.from_user.id
     username = message.from_user.username or message.from_user.first_name
-    
-    print(f"\n🚀 === КОМАНДА /START ===")
-    print(f"User ID: {user_id}")
-    print(f"Username: {username}")
-    
+
     # Создаём пользователя если не существует
     user = get_user(user_id)
-    
+
     if not user:
-        print(f"❌ Пользователь не найден, создаю...")
         create_user(user_id, username)
-        user = get_user(user_id)
-        print(f"✅ Создан: {user}")
-    else:
-        print(f"✅ Пользователь уже есть: {user}")
-    
+
+    # Проверяем онбординг
+    if not is_onboarding_completed(user_id):
+        # Запускаем онбординг для новых пользователей
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🚀 Начать!", callback_data="start_onboarding")]
+        ])
+
+        await message.answer(
+            f"Привет, {username}! 👋\n\n"
+            "Я твой помощник для практики английского! 🎓\n\n"
+            "**Что я умею:**\n"
+            "• Практика разговорной речи (голос и текст)\n"
+            "• Мягкие исправления ошибок\n"
+            "• Помощь с грамматикой и словами\n"
+            "• Адаптация под твой уровень\n\n"
+            "Давай начнем с определения твоего уровня!",
+            reply_markup=keyboard
+        )
+        return
+
+    # Обычное приветствие для пользователей с онбордингом
     await message.answer(
         f"Привет, {username}!\n\n"
         "Я твой помощник для практики английского! 🎓\n\n"
@@ -56,7 +69,6 @@ async def cmd_start(message: Message):
         "Используй кнопки ниже для быстрого доступа! ⬇️",
         reply_markup=get_main_menu(user_id, username)
     )
-    print(f"✅ Приветствие отправлено!")
 
 @router.message(F.text == "📊 Мой статус")
 @router.message(Command("status"))
