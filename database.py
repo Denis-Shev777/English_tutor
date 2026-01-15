@@ -30,7 +30,8 @@ def init_db():
             message_count INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             level TEXT DEFAULT NULL,
-            onboarding_completed INTEGER DEFAULT 0
+            onboarding_completed INTEGER DEFAULT 0,
+            referral_code TEXT DEFAULT NULL
         )
     """)
 
@@ -42,6 +43,11 @@ def init_db():
 
     try:
         cursor.execute("ALTER TABLE users ADD COLUMN onboarding_completed INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass  # Колонка уже существует
+
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN referral_code TEXT DEFAULT NULL")
     except sqlite3.OperationalError:
         pass  # Колонка уже существует
     
@@ -96,12 +102,18 @@ def get_user(user_id: int):
 
 def create_user(user_id: int, username: str):
     """Создать нового пользователя"""
+    import hashlib
+    import time
+
+    # Генерируем уникальный реферальный код
+    referral_code = hashlib.md5(f"{user_id}{time.time()}".encode()).hexdigest()[:8].upper()
+
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     try:
         cursor.execute(
-            "INSERT OR IGNORE INTO users (user_id, username, message_count) VALUES (?, ?, 0)",
-            (user_id, username)
+            "INSERT OR IGNORE INTO users (user_id, username, message_count, referral_code) VALUES (?, ?, 0, ?)",
+            (user_id, username, referral_code)
         )
         conn.commit()
     except Exception as e:
@@ -296,6 +308,51 @@ def is_onboarding_completed(user_id: int) -> bool:
     result = cursor.fetchone()
     conn.close()
     return bool(result[0]) if result else False
+
+def get_referral_code(user_id: int):
+    """Получить реферальный код пользователя"""
+    import hashlib
+    import time
+
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT referral_code FROM users WHERE user_id = ?", (user_id,))
+    result = cursor.fetchone()
+
+    # Если кода нет - генерируем
+    if result and not result[0]:
+        referral_code = hashlib.md5(f"{user_id}{time.time()}".encode()).hexdigest()[:8].upper()
+        cursor.execute("UPDATE users SET referral_code = ? WHERE user_id = ?", (referral_code, user_id))
+        conn.commit()
+        conn.close()
+        return referral_code
+
+    conn.close()
+    return result[0] if result else None
+
+def get_level_stats():
+    """Получить статистику пользователей по уровням"""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT
+            level,
+            COUNT(*) as count
+        FROM users
+        WHERE level IS NOT NULL
+        GROUP BY level
+        ORDER BY
+            CASE level
+                WHEN 'A1' THEN 1
+                WHEN 'A2' THEN 2
+                WHEN 'B1' THEN 3
+                WHEN 'B2' THEN 4
+                ELSE 5
+            END
+    """)
+    stats = cursor.fetchall()
+    conn.close()
+    return stats
 
 # Инициализация при импорте
 init_db()

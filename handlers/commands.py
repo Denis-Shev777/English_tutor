@@ -17,7 +17,9 @@ from database import (
     get_total_users,
     get_active_subscriptions,
     FREE_MESSAGE_LIMIT,
-    is_onboarding_completed
+    is_onboarding_completed,
+    get_referral_code,
+    get_level_stats
 )
 from handlers.keyboards import get_main_menu, get_buy_menu
 
@@ -84,11 +86,14 @@ async def cmd_status(message: Message):
     
     # Белый список по username
     if username and username in WHITELIST_USERNAMES:
+        referral_code = get_referral_code(user_id) or "N/A"
         await message.answer(
-            "⭐ **VIP Status**\n\n"
-            "You have unlimited access!\n"
-            "Messages used: ∞\n"
-            "Subscription: Lifetime Premium 💎",
+            "⭐ **VIP Статус**\n\n"
+            "У вас безлимитный доступ!\n"
+            "Использовано сообщений: ∞\n"
+            "Подписка: Lifetime Premium 💎\n\n"
+            f"🎁 **Реферальный код:** `{referral_code}`\n"
+            "Поделись с друзьями!",
             reply_markup=get_main_menu(user_id, username)
         )
         return
@@ -102,41 +107,48 @@ async def cmd_status(message: Message):
 
         # Форматируем оставшееся время
         if time_left.days > 0:
-            time_left_str = f"{time_left.days} days"
+            time_left_str = f"{time_left.days} дней" if time_left.days > 1 else "1 день"
         else:
             hours_left = time_left.seconds // 3600
-            time_left_str = f"{hours_left} hours"
+            time_left_str = f"{hours_left} часов" if hours_left > 1 else "1 час"
+
+        referral_code = get_referral_code(user_id) or "N/A"
 
         await message.answer(
-            f"✅ **Premium Active**\n\n"
-            f"Status: Premium 💎\n"
-            f"Expires: {expires.strftime('%Y-%m-%d %H:%M')}\n"
-            f"Time left: {time_left_str}\n\n"
-            f"Enjoy unlimited practice!",
+            f"✅ **Premium Активен**\n\n"
+            f"Статус: Premium 💎\n"
+            f"Истекает: {expires.strftime('%Y-%m-%d %H:%M')}\n"
+            f"Осталось: {time_left_str}\n\n"
+            f"🎁 **Реферальный код:** `{referral_code}`\n"
+            f"Поделись с друзьями и получи бонусы!",
             reply_markup=get_main_menu(user_id, username)
         )
     else:
         messages_used = user[2]
         messages_left = FREE_MESSAGE_LIMIT - messages_used
-        
+        referral_code = get_referral_code(user_id) or "N/A"
+
         if messages_left > 0:
             await message.answer(
-                f"📊 **Free Tier Status**\n\n"
-                f"Messages used: {messages_used}/25\n"
-                f"Messages left: {messages_left}\n\n"
-                f"Want unlimited access?\n"
-                f"Get premium for just **100 Stars/week**!\n\n"
-                f"Press button below to upgrade! ⬇️",
+                f"📊 **Бесплатный тариф**\n\n"
+                f"Использовано: {messages_used}/25\n"
+                f"Осталось: {messages_left}\n\n"
+                f"🎁 **Реферальный код:** `{referral_code}`\n"
+                f"Пригласи друзей и получи бонусы!\n\n"
+                f"Хочешь безлимит?\n"
+                f"Premium всего **100 Stars/неделю**!\n\n"
+                f"Нажми кнопку ниже для апгрейда! ⬇️",
                 reply_markup=get_main_menu(user_id, username)
             )
         else:
             await message.answer(
-                f"🚫 **Free messages exhausted**\n\n"
-                f"You've used all 25 free messages.\n\n"
-                f"Get premium access:\n"
-                f"⭐ **100 Stars** - 1 week\n"
-                f"💵 **1.5 USDT (BEP-20)** - 1 week\n\n"
-                f"Press button below to continue! ⬇️",
+                f"🚫 **Бесплатные сообщения закончились**\n\n"
+                f"Вы использовали все 25 бесплатных сообщений.\n\n"
+                f"Получи премиум доступ:\n"
+                f"⭐ **100 Stars** - 1 неделя\n"
+                f"💵 **1.5 USDT (BEP-20)** - 1 неделя\n\n"
+                f"🎁 **Реферальный код:** `{referral_code}`\n\n"
+                f"Нажми кнопку ниже! ⬇️",
                 reply_markup=get_main_menu(user_id, username)
             )
 
@@ -184,16 +196,16 @@ async def cmd_help(message: Message):
     user_id = message.from_user.id
     username = message.from_user.username
     await message.answer(
-        "📚 **Available commands:**\n\n"
-        "📊 Мой статус - Check subscription\n"
-        "💎 Купить Premium - Get premium access\n"
-        "🧠 Очистить память - Bot forgets conversation\n"  # ← ИЗМЕНИЛИ
-        "❓ Помощь - Show this help\n\n"
-        "**How it works:**\n"
-        "1. Send voice or text in English\n"
-        "2. I'll respond with corrections and voice\n"
-        "3. Practice naturally and improve!\n\n"
-        "Need help? Contact @Den_Shev_007",
+        "📚 **Доступные команды:**\n\n"
+        "**📊 Мой статус** - Проверить подписку\n"
+        "**💎 Купить Premium** - Получить премиум доступ\n"
+        "**🧠 Очистить память** - Бот забывает переписку\n"
+        "**❓ Помощь** - Показать эту справку\n\n"
+        "**Как это работает:**\n"
+        "1. Отправляй голос или текст на английском\n"
+        "2. Я отвечу с исправлениями и голосом\n"
+        "3. Практикуйся естественно и улучшайся!\n\n"
+        "Нужна помощь? Пиши english.tution.bot@gmail.com",
         reply_markup=get_main_menu(user_id, username)
     )
 
@@ -215,20 +227,30 @@ async def cmd_stats(message: Message):
     """Статистика (только для админов)"""
     user_id = message.from_user.id
     username = message.from_user.username
-    
+
     # Проверяем что админ
     if username not in WHITELIST_USERNAMES:
         return
-    
+
     total_users = get_total_users()
     active_subs = get_active_subscriptions()
-    
+    level_stats = get_level_stats()
+
     conversion = (active_subs/total_users*100) if total_users > 0 else 0
-    
+
+    # Форматируем статистику по уровням
+    level_text = ""
+    if level_stats:
+        for level, count in level_stats:
+            level_text += f"{level}: {count} чел.\n"
+    else:
+        level_text = "Нет данных\n"
+
     await message.answer(
-        f"📊 **Bot Statistics**\n\n"
-        f"👥 Total users: {total_users}\n"
-        f"💎 Active subscriptions: {active_subs}\n"
-        f"📈 Conversion: {conversion:.1f}%",
+        f"📊 **Статистика бота**\n\n"
+        f"👥 **Всего пользователей:** {total_users}\n"
+        f"💎 **Активные подписки:** {active_subs}\n"
+        f"📈 **Конверсия:** {conversion:.1f}%\n\n"
+        f"📚 **По уровням:**\n{level_text}",
         reply_markup=get_main_menu(user_id, username)
     )
