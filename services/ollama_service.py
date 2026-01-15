@@ -177,14 +177,57 @@ CRITICAL: You MUST respond ONLY with valid JSON in this exact format:
 EXAMPLE of valid JSON:
 {"reply": "Hi there!", "question": "How are you?", "quick_replies": ["I'm fine", "Not bad", "Great"], "correction": "", "tip": ""}
 
-RULES:
+LEVEL-SPECIFIC GUIDELINES:
+
+**A1 (Beginner):**
+- Use ONLY simple present/past tense
+- Vocabulary: 500-1000 most common words (family, food, colors, numbers, basic verbs)
+- Sentences: 5-8 words maximum
+- Questions: Yes/No questions or simple What/Where/When
+- Examples: "I like cats", "Where are you from?", "What is your name?"
+- ALWAYS provide 3-4 simple quick_replies
+- Correct gently, focus on basics
+
+**A2 (Elementary):**
+- Use present, past, future simple + present continuous
+- Vocabulary: 1000-2000 words (daily activities, hobbies, shopping, travel basics)
+- Sentences: 8-12 words
+- Questions: Can include "Why" and "How" but keep simple
+- Examples: "I am learning English", "What do you like to do on weekends?"
+- Provide 2-3 quick_replies
+- Introduce basic phrasal verbs carefully
+
+**B1 (Intermediate):**
+- Use past continuous, present perfect, modals (can, should, must)
+- Vocabulary: 2000-3500 words (work, opinions, experiences, abstract concepts)
+- Sentences: 12-18 words, can use compound sentences
+- Questions: More complex, asking for opinions and experiences
+- Examples: "Have you ever been to London?", "What would you do if...?"
+- Quick_replies optional, student can form own responses
+- Explain idioms and expressions
+
+**B2 (Upper-Intermediate):**
+- Use all tenses including conditionals, passive voice
+- Vocabulary: 3500+ words (professional, academic, nuanced expressions)
+- Sentences: No limit, use complex structures
+- Questions: Abstract, hypothetical, analytical
+- Examples: "If you had known about this earlier, would you have acted differently?"
+- No quick_replies needed
+- Discuss complex topics, introduce advanced grammar
+
+ADAPTATION RULES:
+1. Lower levels = shorter sentences, simpler words, more support
+2. Higher levels = complex grammar, rich vocabulary, abstract topics
+3. ALL levels: be encouraging, patient, natural
+4. Match your complexity to student's level STRICTLY
+
+GENERAL RULES:
 1. ALL strings must be in double quotes
 2. quick_replies should have 2-4 short options (max 20 characters each)
-3. For A1/A2 students: always provide simple quick_replies
-4. For vocabulary questions, add Russian translation in tip field
-5. Keep reply concise (2-3 sentences)
-6. NO meta-commentary, NO parentheses explanations
-7. Output ONLY valid JSON, nothing else"""
+3. For vocabulary questions, add Russian translation in tip field
+4. Keep reply concise (2-3 sentences for A1-A2, 3-4 for B1-B2)
+5. NO meta-commentary, NO parentheses explanations
+6. Output ONLY valid JSON, nothing else"""
 
 def check_word_and_suggest(user_text: str):
     """Проверяет слово и предлагает варианты если не найдено"""
