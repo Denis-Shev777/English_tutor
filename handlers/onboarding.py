@@ -23,7 +23,7 @@ LEVEL_DESCRIPTIONS = {
     "B2": "Продвинутый - свободно общаюсь, понимаю фильмы"
 }
 
-# Проверочные вопросы для каждого уровня
+# Проверочные вопросы для каждого уровня (по 3 вопроса)
 VERIFICATION_QUESTIONS = {
     "A1": [
         {
@@ -35,6 +35,11 @@ VERIFICATION_QUESTIONS = {
             "question": "What is this: 🍎?",
             "options": ["Banana", "Apple", "Orange", "Grape"],
             "correct": 1
+        },
+        {
+            "question": "I ___ a student.",
+            "options": ["am", "is", "are", "be"],
+            "correct": 0
         }
     ],
     "A2": [
@@ -47,6 +52,11 @@ VERIFICATION_QUESTIONS = {
             "question": "She ___ like coffee.",
             "options": ["don't", "doesn't", "isn't", "aren't"],
             "correct": 1
+        },
+        {
+            "question": "They ___ tennis every weekend.",
+            "options": ["play", "plays", "playing", "played"],
+            "correct": 0
         }
     ],
     "B1": [
@@ -59,6 +69,11 @@ VERIFICATION_QUESTIONS = {
             "question": "I've been ___ for this company for 5 years.",
             "options": ["work", "worked", "working", "works"],
             "correct": 2
+        },
+        {
+            "question": "She told me that she ___ the movie before.",
+            "options": ["saw", "has seen", "had seen", "would see"],
+            "correct": 2
         }
     ],
     "B2": [
@@ -70,6 +85,11 @@ VERIFICATION_QUESTIONS = {
         {
             "question": "I wish I ___ more time to study last year.",
             "options": ["have", "had", "had had", "would have"],
+            "correct": 2
+        },
+        {
+            "question": "By the time you arrive, we ___ dinner.",
+            "options": ["finish", "will finish", "will have finished", "are finishing"],
             "correct": 2
         }
     ]
@@ -107,16 +127,15 @@ async def select_level(callback: CallbackQuery):
     level = callback.data.split("_")[1]  # A1, A2, B1, B2
     user_id = callback.from_user.id
 
-    # Сохраняем временно выбранный уровень (подтвердим после теста)
-    # Сохраняем в callback_data первого вопроса
-
     questions = VERIFICATION_QUESTIONS[level]
     question_data = questions[0]
 
+    # Формат callback_data: verify_{level}_{question_idx}_{answer_idx}_{current_score}
+    # Начинаем с score=0
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(
             text=option,
-            callback_data=f"verify_{level}_0_{i}"
+            callback_data=f"verify_{level}_0_{i}_0"
         )] for i, option in enumerate(question_data["options"])
     ])
 
@@ -133,17 +152,19 @@ async def verify_answer(callback: CallbackQuery):
     """Проверка ответа на вопрос"""
     await callback.answer()
 
-    # Формат: verify_A1_0_1 (level_questionIndex_answerIndex)
+    # Формат: verify_{level}_{question_idx}_{answer_idx}_{current_score}
     parts = callback.data.split("_")
     level = parts[1]
     question_idx = int(parts[2])
     answer_idx = int(parts[3])
+    current_score = int(parts[4])
 
     questions = VERIFICATION_QUESTIONS[level]
     current_question = questions[question_idx]
 
     # Проверяем ответ
     is_correct = answer_idx == current_question["correct"]
+    new_score = current_score + (1 if is_correct else 0)
 
     # Следующий вопрос
     next_idx = question_idx + 1
@@ -154,7 +175,7 @@ async def verify_answer(callback: CallbackQuery):
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(
                 text=option,
-                callback_data=f"verify_{level}_{next_idx}_{i}"
+                callback_data=f"verify_{level}_{next_idx}_{i}_{new_score}"
             )] for i, option in enumerate(next_question["options"])
         ])
 
@@ -168,11 +189,20 @@ async def verify_answer(callback: CallbackQuery):
 
         await callback.message.answer(text, reply_markup=keyboard)
     else:
-        # Тест завершен
-        await complete_onboarding(callback, level, is_correct)
+        # Тест завершен - проверяем финальный результат
+        total_questions = len(questions)
+        final_score = new_score
 
-async def complete_onboarding(callback: CallbackQuery, level: str, last_correct: bool):
-    """Завершение онбординга"""
+        # Для прохождения нужно 2 из 3 правильных ответов
+        if final_score >= 2:
+            # Уровень подтвержден
+            await complete_onboarding(callback, level, final_score, total_questions)
+        else:
+            # Уровень не подтвержден - предлагаем повторить или выбрать другой
+            await failed_verification(callback, level, final_score, total_questions)
+
+async def complete_onboarding(callback: CallbackQuery, level: str, score: int, total: int):
+    """Завершение онбординга - уровень подтвержден"""
     user_id = callback.from_user.id
     username = callback.from_user.username
 
@@ -184,20 +214,51 @@ async def complete_onboarding(callback: CallbackQuery, level: str, last_correct:
     set_user_level(user_id, level)
     mark_onboarding_completed(user_id)
 
-    logger.info(f"Пользователь {user_id} завершил онбординг, уровень: {level}")
-
-    feedback = "Отлично! ✅" if last_correct else "Хорошая попытка! 👍"
+    logger.info(f"Пользователь {user_id} завершил онбординг, уровень: {level}, результат: {score}/{total}")
 
     text = (
-        f"{feedback}\n\n"
-        f"🎉 Онбординг завершен!\n\n"
-        f"Твой уровень: <b>{level}</b>\n"
+        f"🎉 Отлично! Результат: <b>{score} из {total}</b>\n\n"
+        f"✅ Уровень <b>{level}</b> подтвержден!\n"
         f"{LEVEL_DESCRIPTIONS[level]}\n\n"
         f"Теперь я буду адаптировать свои ответы под твой уровень.\n\n"
         f"Начнем практику! Отправь голосовое или текстовое сообщение."
     )
 
     await callback.message.answer(text)
+
+async def failed_verification(callback: CallbackQuery, level: str, score: int, total: int):
+    """Тест не пройден - предложить повторить или выбрать другой уровень"""
+    user_id = callback.from_user.id
+
+    logger.info(f"Пользователь {user_id} не прошел тест уровня {level}, результат: {score}/{total}")
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔄 Пройти тест заново", callback_data=f"level_{level}")],
+        [InlineKeyboardButton(text="📝 Выбрать другой уровень", callback_data="choose_different_level")]
+    ])
+
+    text = (
+        f"Результат: <b>{score} из {total}</b> 🤔\n\n"
+        f"Для подтверждения уровня {level} нужно правильно ответить минимум на 2 вопроса из 3.\n\n"
+        f"Что ты хочешь сделать?"
+    )
+
+    await callback.message.answer(text, reply_markup=keyboard)
+
+@router.callback_query(F.data == "choose_different_level")
+async def choose_different_level(callback: CallbackQuery):
+    """Выбрать другой уровень после провала теста"""
+    await callback.answer()
+
+    text = (
+        "Выбери другой уровень английского:\n\n"
+        f"<b>A1</b> - {LEVEL_DESCRIPTIONS['A1']}\n"
+        f"<b>A2</b> - {LEVEL_DESCRIPTIONS['A2']}\n"
+        f"<b>B1</b> - {LEVEL_DESCRIPTIONS['B1']}\n"
+        f"<b>B2</b> - {LEVEL_DESCRIPTIONS['B2']}"
+    )
+
+    await callback.message.answer(text, reply_markup=get_level_selection_keyboard())
 
 @router.message(Command("change_level"))
 @router.message(F.text == "🎓 Изменить уровень")
