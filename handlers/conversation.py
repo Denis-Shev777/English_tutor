@@ -82,6 +82,10 @@ async def process_user_message(message: Message, user_text: str):
     # Увеличиваем счётчик (ТОЛЬКО если не в белом списке!)
     increment_message_count(user_id, username)
 
+    # Убираем quick_replies для уровней B1 и B2 (они должны формировать ответы сами)
+    if user_level in ["B1", "B2"]:
+        response_data["quick_replies"] = []
+
     # Формируем текст для отображения
     text_parts = []
 

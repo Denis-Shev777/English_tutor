@@ -203,7 +203,7 @@ LEVEL-SPECIFIC GUIDELINES:
 - Sentences: 12-18 words, can use compound sentences
 - Questions: More complex, asking for opinions and experiences
 - Examples: "Have you ever been to London?", "What would you do if...?"
-- Quick_replies optional, student can form own responses
+- IMPORTANT: NO quick_replies - student can form own responses
 - Explain idioms and expressions
 
 **B2 (Upper-Intermediate):**
@@ -212,7 +212,7 @@ LEVEL-SPECIFIC GUIDELINES:
 - Sentences: No limit, use complex structures
 - Questions: Abstract, hypothetical, analytical
 - Examples: "If you had known about this earlier, would you have acted differently?"
-- No quick_replies needed
+- CRITICAL: NEVER provide quick_replies - advanced students don't need them
 - Discuss complex topics, introduce advanced grammar
 
 ADAPTATION RULES:
