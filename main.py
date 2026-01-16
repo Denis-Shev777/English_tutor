@@ -10,7 +10,7 @@ load_dotenv()
 
 # Импортируем логгер и handlers
 from logger import get_logger
-from handlers import commands, conversation, payments
+from handlers import commands, conversation, payments, onboarding
 from database import init_db
 
 # Логгер
@@ -36,7 +36,9 @@ async def main():
     dp = Dispatcher()
 
     # Регистрируем роутеры
+    # ВАЖНО: onboarding ДО conversation, чтобы кнопки обрабатывались правильно!
     dp.include_router(commands.router)
+    dp.include_router(onboarding.router)
     dp.include_router(payments.router)
     dp.include_router(conversation.router)
 
