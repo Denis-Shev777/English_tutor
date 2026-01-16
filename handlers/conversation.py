@@ -21,7 +21,7 @@ from database import (
     is_onboarding_completed,
     get_user_level
 )
-from services.ollama_service import get_ollama_response
+from services.ollama_service import get_ollama_response, is_translation_request, get_word_explanation
 from services.whisper_service import transcribe_audio
 from services.tts_service import text_to_speech
 from handlers.keyboards import get_main_menu
@@ -37,20 +37,43 @@ async def process_user_message(message: Message, user_text: str):
     username = message.from_user.username
     bot = message.bot
 
+    print(f"\n🔄 === PROCESS_USER_MESSAGE ===")
+    print(f"User ID: {user_id}, Text: {user_text}")
+
     # Получаем уровень пользователя
     user_level = get_user_level(user_id)
+    print(f"📚 User level: {user_level}")
 
-    # Получаем историю разговора (последние 8 сообщений для контекста)
-    history = get_conversation_history(user_id, limit=8)
+    # Проверяем, является ли это запросом на перевод/объяснение слова
+    is_translation, word = is_translation_request(user_text)
 
-    # Показываем "печатает..."
-    await bot.send_chat_action(user_id, ChatAction.TYPING)
+    if is_translation and word:
+        print(f"📖 Translation request detected for word: '{word}'")
 
-    # Случайная задержка (имитация размышления)
-    await asyncio.sleep(random.uniform(1.5, 3.0))
+        # Показываем "печатает..."
+        await bot.send_chat_action(user_id, ChatAction.TYPING)
 
-    # Получаем ответ от LLaMA (теперь dict!)
-    response_data = get_ollama_response(user_text, history, user_level)
+        # Случайная задержка (имитация размышления)
+        await asyncio.sleep(random.uniform(1.5, 3.0))
+
+        # Получаем объяснение слова
+        response_data = get_word_explanation(word, user_level)
+        print(f"✅ Got word explanation for '{word}'")
+    else:
+        # Получаем историю разговора (последние 8 сообщений для контекста)
+        history = get_conversation_history(user_id, limit=8)
+        print(f"📜 History: {len(history)} messages")
+
+        # Показываем "печатает..."
+        await bot.send_chat_action(user_id, ChatAction.TYPING)
+
+        # Случайная задержка (имитация размышления)
+        await asyncio.sleep(random.uniform(1.5, 3.0))
+
+        print(f"🤖 Calling get_ollama_response...")
+        # Получаем ответ от LLaMA (теперь dict!)
+        response_data = get_ollama_response(user_text, history, user_level)
+        print(f"✅ Got response: {response_data.get('reply', '')[:50]}...")
 
     # Сохраняем в историю (сохраняем только reply для истории)
     save_message(user_id, "user", user_text)

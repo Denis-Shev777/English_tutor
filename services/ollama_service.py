@@ -229,28 +229,108 @@ GENERAL RULES:
 5. NO meta-commentary, NO parentheses explanations
 6. Output ONLY valid JSON, nothing else"""
 
-def check_word_and_suggest(user_text: str):
-    """Проверяет слово и предлагает варианты если не найдено"""
-    
+def is_translation_request(user_text: str):
+    """
+    Проверяет, является ли сообщение запросом на перевод/объяснение слова
+    Returns: (bool, str) - (True/False, extracted_word или None)
+    """
     patterns = [
-        r"what\s+(?:does|is)\s+(?:mean\s+)?(\w+)",
-        r"what\s+is\s+mean\s+(\w+)",
-        r"meaning\s+of\s+(\w+)",
-        r"translate\s+(?:please\s+)?(\w+)"
+        r"what\s+(?:does|is)\s+(?:mean\s+)?['\"]?(\w+)['\"]?",
+        r"what\s+is\s+mean\s+['\"]?(\w+)['\"]?",
+        r"what's\s+mean\s+['\"]?(\w+)['\"]?",
+        r"meaning\s+of\s+['\"]?(\w+)['\"]?",
+        r"translate\s+(?:please\s+)?['\"]?(\w+)['\"]?",
+        r"what\s+mean\s+['\"]?(\w+)['\"]?"
     ]
-    
+
     for pattern in patterns:
         match = re.search(pattern, user_text.lower())
         if match:
             word = match.group(1).lower()
-            
-            if word not in COMMON_WORDS:
-                suggestions = get_close_matches(word, COMMON_WORDS, n=3, cutoff=0.6)
-                
-                if suggestions:
-                    return f"I do not know the word '{word}'. Did you mean: {', '.join(suggestions)}? Let me know which one!"
-    
-    return None
+            return (True, word)
+
+    return (False, None)
+
+def get_word_explanation(word: str, user_level: str = None):
+    """
+    Получить объяснение слова с переводом и примером
+    """
+    level_note = f"\nStudent level: {user_level}" if user_level else ""
+
+    prompt = f"""You are an English teacher. A student asked about the word "{word}".
+
+Provide a response in this EXACT JSON format:
+{{
+  "reply": "The word '{word}' means [explanation in simple English]. In Russian: [Russian translation]",
+  "question": "example sentence using '{word}' (Russian translation in parentheses)",
+  "quick_replies": [],
+  "correction": "",
+  "tip": ""
+}}
+
+CRITICAL REQUIREMENTS:
+1. In "reply": give a clear English explanation, then add "In Russian: [перевод]"
+2. In "question": provide ONE example sentence with the word, and add Russian translation in parentheses at the end
+3. Example format for "question": "The dog is a friendly breed (Собака — дружелюбная порода)"
+4. Keep explanations simple and clear{level_note}
+5. Output ONLY valid JSON, nothing else
+
+Respond ONLY with valid JSON:"""
+
+    try:
+        response = requests.post(
+            OLLAMA_API_URL,
+            json={
+                "model": MODEL_NAME,
+                "prompt": prompt,
+                "stream": False,
+                "options": {
+                    "temperature": 0.3,
+                    "top_p": 0.9,
+                    "max_tokens": 250
+                }
+            },
+            timeout=30
+        )
+
+        if response.status_code == 200:
+            result = response.json()
+            raw_response = result.get("response", "").strip()
+
+            # Парсим JSON
+            try:
+                json_match = re.search(r'\{.*\}', raw_response, re.DOTALL)
+                if json_match:
+                    json_str = json_match.group(0)
+                    parsed = json.loads(json_str)
+                    return {
+                        "reply": parsed.get("reply", ""),
+                        "question": parsed.get("question", ""),
+                        "quick_replies": parsed.get("quick_replies", []),
+                        "correction": parsed.get("correction", ""),
+                        "tip": parsed.get("tip", "")
+                    }
+            except (json.JSONDecodeError, ValueError) as e:
+                print(f"JSON parse error in word explanation: {e}")
+
+        # Fallback
+        return {
+            "reply": f"The word '{word}' is an English word. Let me explain it to you.",
+            "question": "Would you like to practice using this word in a sentence?",
+            "quick_replies": ["Yes, please", "No, thanks"],
+            "correction": "",
+            "tip": ""
+        }
+
+    except Exception as e:
+        print(f"Error getting word explanation: {e}")
+        return {
+            "reply": f"I can help you understand the word '{word}'. Let's practice it!",
+            "question": "",
+            "quick_replies": [],
+            "correction": "",
+            "tip": ""
+        }
 
 def get_ollama_response(user_text: str, history: list = None, user_level: str = None):
     """

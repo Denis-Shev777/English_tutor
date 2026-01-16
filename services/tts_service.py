@@ -39,6 +39,17 @@ def remove_emojis(text):
     )
     return emoji_pattern.sub('', text)
 
+def remove_russian_in_parentheses(text):
+    """
+    Удалить русский текст в скобках для TTS
+    Пример: "The dog is barking (Собака лает)" -> "The dog is barking"
+    """
+    # Паттерн для поиска скобок с кириллицей
+    # Удаляем всё содержимое скобок, если внутри есть кириллица
+    pattern = r'\s*\([^)]*[а-яА-ЯёЁ][^)]*\)'
+    result = re.sub(pattern, '', text)
+    return result.strip()
+
 def text_to_speech(text, output_path=None):
     """
     Преобразовать текст в речь с небольшим замедлением
@@ -51,12 +62,13 @@ def text_to_speech(text, output_path=None):
         str: путь к созданному аудио файлу
     """
     try:
-        # УБИРАЕМ ЭМОДЗИ перед генерацией голоса
+        # УБИРАЕМ ЭМОДЗИ и РУССКИЙ ТЕКСТ В СКОБКАХ перед генерацией голоса
         clean_text = remove_emojis(text)
+        clean_text = remove_russian_in_parentheses(clean_text)
         clean_text = clean_text.strip()
-        
+
         if not clean_text:
-            print("⚠️ Текст пустой после удаления эмодзи, пропускаю генерацию голоса")
+            print("⚠️ Текст пустой после очистки, пропускаю генерацию голоса")
             return None
         
         # Создаём временный файл для оригинального аудио
