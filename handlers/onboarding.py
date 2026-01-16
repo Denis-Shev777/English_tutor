@@ -191,13 +191,13 @@ async def complete_onboarding(callback: CallbackQuery, level: str, last_correct:
     text = (
         f"{feedback}\n\n"
         f"🎉 Онбординг завершен!\n\n"
-        f"Твой уровень: **{level}**\n"
+        f"Твой уровень: <b>{level}</b>\n"
         f"{LEVEL_DESCRIPTIONS[level]}\n\n"
         f"Теперь я буду адаптировать свои ответы под твой уровень.\n\n"
         f"Начнем практику! Отправь голосовое или текстовое сообщение."
     )
 
-    await callback.message.answer(text, parse_mode="Markdown")
+    await callback.message.answer(text)
 
 @router.message(Command("change_level"))
 @router.message(F.text == "🎓 Изменить уровень")
