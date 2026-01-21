@@ -235,12 +235,24 @@ def is_translation_request(user_text: str):
     Returns: (bool, str) - (True/False, extracted_word или None)
     """
     patterns = [
+        # "What is mean..." / "What does mean..."
         r"what\s+(?:does|is)\s+(?:mean\s+)?['\"]?(\w+)['\"]?",
         r"what\s+is\s+mean\s+['\"]?(\w+)['\"]?",
         r"what's\s+mean\s+['\"]?(\w+)['\"]?",
+        r"what\s+mean\s+['\"]?(\w+)['\"]?",
+        # "Meaning of..."
         r"meaning\s+of\s+['\"]?(\w+)['\"]?",
+        # "Translate..."
         r"translate\s+(?:please\s+)?['\"]?(\w+)['\"]?",
-        r"what\s+mean\s+['\"]?(\w+)['\"]?"
+        # "Give me situation/example with word..."
+        r"give\s+me\s+(?:a\s+)?(?:situation|example|sentence)\s+(?:with\s+)?(?:word\s+)?['\"]?(\w+)['\"]?",
+        r"situation\s+with\s+(?:word\s+)?['\"]?(\w+)['\"]?",
+        r"example\s+with\s+(?:word\s+)?['\"]?(\w+)['\"]?",
+        # "Use word ... in sentence"
+        r"use\s+(?:word\s+)?['\"]?(\w+)['\"]?\s+in\s+(?:a\s+)?(?:sentence|example)",
+        r"how\s+to\s+use\s+['\"]?(\w+)['\"]?",
+        # "Explain word..."
+        r"explain\s+(?:word\s+)?['\"]?(\w+)['\"]?",
     ]
 
     for pattern in patterns:
@@ -261,19 +273,20 @@ def get_word_explanation(word: str, user_level: str = None):
 
 Provide a response in this EXACT JSON format:
 {{
-  "reply": "The word '{word}' means [explanation in simple English]. In Russian: [Russian translation]",
-  "question": "example sentence using '{word}' (Russian translation in parentheses)",
+  "reply": "The word '{word}' means [explanation in simple English] (Russian: [перевод])",
+  "question": "Example: [sentence with '{word}'] (Пример: [русский перевод предложения])",
   "quick_replies": [],
   "correction": "",
   "tip": ""
 }}
 
 CRITICAL REQUIREMENTS:
-1. In "reply": give a clear English explanation, then add "In Russian: [перевод]"
-2. In "question": provide ONE example sentence with the word, and add Russian translation in parentheses at the end
-3. Example format for "question": "The dog is a friendly breed (Собака — дружелюбная порода)"
-4. Keep explanations simple and clear{level_note}
-5. Output ONLY valid JSON, nothing else
+1. In "reply": give clear English explanation, then add Russian translation IN PARENTHESES: (Russian: перевод)
+2. In "question": provide ONE example sentence, then add full Russian translation IN PARENTHESES: (Пример: перевод)
+3. Example format for "reply": "The word 'breed' means a type or kind of animal (Russian: порода)"
+4. Example format for "question": "Example: The dog is a friendly breed (Пример: Собака — дружелюбная порода)"
+5. IMPORTANT: Russian text MUST be in parentheses so TTS can skip it{level_note}
+6. Output ONLY valid JSON, nothing else
 
 Respond ONLY with valid JSON:"""
 
@@ -315,9 +328,9 @@ Respond ONLY with valid JSON:"""
 
         # Fallback
         return {
-            "reply": f"The word '{word}' is an English word. Let me explain it to you.",
-            "question": "Would you like to practice using this word in a sentence?",
-            "quick_replies": ["Yes, please", "No, thanks"],
+            "reply": f"The word '{word}' is an English word (Слово '{word}' - английское слово)",
+            "question": f"Example: I use the word '{word}' often (Пример: Я часто использую слово '{word}')",
+            "quick_replies": [],
             "correction": "",
             "tip": ""
         }
@@ -325,7 +338,7 @@ Respond ONLY with valid JSON:"""
     except Exception as e:
         print(f"Error getting word explanation: {e}")
         return {
-            "reply": f"I can help you understand the word '{word}'. Let's practice it!",
+            "reply": f"I can help you with the word '{word}' (Я помогу тебе со словом '{word}')",
             "question": "",
             "quick_replies": [],
             "correction": "",
