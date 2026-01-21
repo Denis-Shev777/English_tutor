@@ -89,6 +89,10 @@ async def process_user_message(message: Message, user_text: str):
     # Формируем текст для отображения
     text_parts = []
 
+    # ВАЖНО: Исправление ПЕРВЫМ, чтобы обратить внимание!
+    if response_data.get("correction"):
+        text_parts.append(f"✏️ Correct: {response_data['correction']}\n\n")
+
     # Основной ответ
     text_parts.append(response_data["reply"])
 
@@ -96,20 +100,26 @@ async def process_user_message(message: Message, user_text: str):
     if response_data.get("question"):
         text_parts.append(f"\n{response_data['question']}")
 
-    # Добавляем исправление если есть
-    if response_data.get("correction"):
-        text_parts.append(f"\n\n✏️ Correct: {response_data['correction']}")
-
     # Добавляем подсказку если есть
     if response_data.get("tip"):
         text_parts.append(f"\n💡 {response_data['tip']}")
 
     full_text = "".join(text_parts)
 
-    # Для TTS используем reply + question (без corrections и tips с эмодзи)
-    tts_parts = [response_data["reply"]]
+    # Для TTS включаем correction (БЕЗ эмодзи), reply и question
+    tts_parts = []
+
+    # Озвучиваем исправление если есть
+    if response_data.get("correction"):
+        tts_parts.append(f"Correct: {response_data['correction']}. ")
+
+    # Основной ответ
+    tts_parts.append(response_data["reply"])
+
+    # Вопрос
     if response_data.get("question"):
         tts_parts.append(" " + response_data["question"])
+
     english_part = "".join(tts_parts)
 
     # Создаем inline кнопки из quick_replies
