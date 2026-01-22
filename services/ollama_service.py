@@ -245,13 +245,13 @@ def is_russian_query(user_text: str):
     if match:
         return (True, 'what_means', match.group(1).strip())
 
-    # "Как будет на английском: слово" или "Как сказать ... на английском"
-    match = re.search(r'как\s+(?:будет|сказать)(?:\s+на\s+английском)?[\s:]+(.+?)(?:\s+на\s+английском)?$', user_text, re.IGNORECASE)
+    # "Как по-английски будет слово" или "Как по английски будет слово" (игнорируем "будет")
+    match = re.search(r'как\s+по[\s\-]английски\s+(?:будет\s+)?(.+)', user_text, re.IGNORECASE)
     if match:
         return (True, 'translate_to_en', match.group(1).strip())
 
-    # "Как по английски: слово" (БЕЗ дефиса) или "Как по-английски: слово" (С дефисом)
-    match = re.search(r'как\s+по[\s\-]английски[\s:]+(.+)', user_text, re.IGNORECASE)
+    # "Как будет на английском: слово" или "Как сказать ... на английском"
+    match = re.search(r'как\s+(?:будет|сказать)(?:\s+на\s+английском)?[\s:]+(.+?)(?:\s+на\s+английском)?$', user_text, re.IGNORECASE)
     if match:
         return (True, 'translate_to_en', match.group(1).strip())
 
