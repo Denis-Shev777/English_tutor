@@ -227,7 +227,14 @@ GENERAL RULES:
 3. For vocabulary questions, add Russian translation in tip field
 4. Keep reply concise (2-3 sentences for A1-A2, 3-4 for B1-B2)
 5. NO meta-commentary, NO parentheses explanations
-6. Output ONLY valid JSON, nothing else"""
+6. Output ONLY valid JSON, nothing else
+
+CRITICAL CORRECTION RULE:
+- ALWAYS check for grammar mistakes in user's message
+- If there's ANY mistake (grammar, word order, verb form, article, etc.), fill "correction" field
+- Examples: "I doesn't" → correction: "I don't", "She go" → correction: "She goes"
+- If message is perfect, leave correction empty ("")
+- Even if message is conversational/short, still check grammar!"""
 
 def is_russian_query(user_text: str):
     """
@@ -263,7 +270,9 @@ def is_translation_request(user_text: str):
     Returns: (bool, str) - (True/False, extracted_word или None)
     """
     patterns = [
-        # "Word: [word]" или "Word [word]" - ПРИОРИТЕТ!
+        # "The word is [word]" или "Word is [word]" - ВЫСШИЙ ПРИОРИТЕТ!
+        r"(?:the\s+)?word\s+is\s+['\"]?(\w+)['\"]?",
+        # "Word: [word]" или "Word [word]"
         r"word[\s:]+['\"]?(\w+)['\"]?",
         # "Translate please, [word]" - игнорируем please, берем [word]
         r"translate[\s,]+please[\s,]+['\"]?(\w+)['\"]?",
