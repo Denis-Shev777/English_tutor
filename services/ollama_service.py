@@ -229,6 +229,34 @@ GENERAL RULES:
 5. NO meta-commentary, NO parentheses explanations
 6. Output ONLY valid JSON, nothing else"""
 
+def is_russian_query(user_text: str):
+    """
+    Проверяет, является ли сообщение запросом на русском языке
+    Returns: (bool, str, str) - (True/False, query_type, extracted_text)
+    query_type: 'translate_to_en', 'translate_to_ru', 'what_means'
+    """
+    # "Переведи: слово" или "Переведи слово"
+    match = re.search(r'переведи[\s:]+(.+)', user_text, re.IGNORECASE)
+    if match:
+        return (True, 'translate_to_en', match.group(1).strip())
+
+    # "Что значит слово" или "Что означает слово"
+    match = re.search(r'что\s+(?:значит|означает)[\s:]+(.+)', user_text, re.IGNORECASE)
+    if match:
+        return (True, 'what_means', match.group(1).strip())
+
+    # "Как будет на английском: слово" или "Как сказать ... на английском"
+    match = re.search(r'как\s+(?:будет|сказать)(?:\s+на\s+английском)?[\s:]+(.+?)(?:\s+на\s+английском)?$', user_text, re.IGNORECASE)
+    if match:
+        return (True, 'translate_to_en', match.group(1).strip())
+
+    # "Как по-английски: слово"
+    match = re.search(r'как\s+по-английски[\s:]+(.+)', user_text, re.IGNORECASE)
+    if match:
+        return (True, 'translate_to_en', match.group(1).strip())
+
+    return (False, None, None)
+
 def is_translation_request(user_text: str):
     """
     Проверяет, является ли сообщение запросом на перевод/объяснение слова
@@ -266,6 +294,87 @@ def is_translation_request(user_text: str):
             return (True, word)
 
     return (False, None)
+
+def get_russian_translation(russian_text: str, user_level: str = None):
+    """
+    Перевод с русского на английский с объяснением
+    """
+    level_note = f"\nStudent level: {user_level}" if user_level else ""
+
+    prompt = f"""You are an English teacher. A Russian-speaking student asked how to say "{russian_text}" in English.
+
+Provide a response in this EXACT JSON format:
+{{
+  "reply": "In English, we say: [English translation] (Russian: {russian_text})",
+  "question": "Example: [sentence using the English word/phrase] (Пример: [русский перевод предложения])",
+  "quick_replies": [],
+  "correction": "",
+  "tip": ""
+}}
+
+CRITICAL REQUIREMENTS:
+1. In "reply": provide the English translation, then add the original Russian IN PARENTHESES
+2. In "question": provide ONE example sentence using the English word/phrase, with Russian translation IN PARENTHESES
+3. Example: If russian_text = "собака", reply should be "In English, we say: dog (Russian: собака)"
+4. Example: question should be "Example: I have a dog (Пример: У меня есть собака)"
+5. IMPORTANT: Russian text MUST be in parentheses so TTS can skip it{level_note}
+6. Output ONLY valid JSON, nothing else
+
+Respond ONLY with valid JSON:"""
+
+    try:
+        response = requests.post(
+            OLLAMA_API_URL,
+            json={
+                "model": MODEL_NAME,
+                "prompt": prompt,
+                "stream": False,
+                "options": {
+                    "temperature": 0.3,
+                    "top_p": 0.9,
+                    "max_tokens": 250
+                }
+            },
+            timeout=30
+        )
+
+        if response.status_code == 200:
+            result = response.json()
+            raw_response = result.get("response", "").strip()
+
+            try:
+                json_match = re.search(r'\{.*\}', raw_response, re.DOTALL)
+                if json_match:
+                    json_str = json_match.group(0)
+                    parsed = json.loads(json_str)
+                    return {
+                        "reply": parsed.get("reply", ""),
+                        "question": parsed.get("question", ""),
+                        "quick_replies": parsed.get("quick_replies", []),
+                        "correction": parsed.get("correction", ""),
+                        "tip": parsed.get("tip", "")
+                    }
+            except (json.JSONDecodeError, ValueError) as e:
+                print(f"JSON parse error in Russian translation: {e}")
+
+        # Fallback
+        return {
+            "reply": f"In English, we say: [translation] (Russian: {russian_text})",
+            "question": f"Let me give you an example (Давай пример)",
+            "quick_replies": [],
+            "correction": "",
+            "tip": ""
+        }
+
+    except Exception as e:
+        print(f"Error getting Russian translation: {e}")
+        return {
+            "reply": f"Let me help you translate '{russian_text}' to English (Помогу тебе перевести '{russian_text}' на английский)",
+            "question": "",
+            "quick_replies": [],
+            "correction": "",
+            "tip": ""
+        }
 
 def get_word_explanation(word: str, user_level: str = None):
     """
