@@ -301,24 +301,31 @@ def get_russian_translation(russian_text: str, user_level: str = None):
     """
     level_note = f"\nStudent level: {user_level}" if user_level else ""
 
-    prompt = f"""You are an English teacher. A Russian-speaking student asked how to say "{russian_text}" in English.
+    prompt = f"""You are an English teacher. A Russian-speaking student asked: "How to say '{russian_text}' in English?"
 
-Provide a response in this EXACT JSON format:
+Provide a SIMPLE, DIRECT response in this EXACT JSON format:
 {{
-  "reply": "In English, we say: [English translation] (Russian: {russian_text})",
-  "question": "Example: [sentence using the English word/phrase] (Пример: [русский перевод предложения])",
+  "reply": "In English, we say: [ONE SIMPLE TRANSLATION ONLY] (Russian: {russian_text})",
+  "question": "Example: [ONE SIMPLE SENTENCE] (Пример: [простой русский перевод])",
   "quick_replies": [],
   "correction": "",
   "tip": ""
 }}
 
-CRITICAL REQUIREMENTS:
-1. In "reply": provide the English translation, then add the original Russian IN PARENTHESES
-2. In "question": provide ONE example sentence using the English word/phrase, with Russian translation IN PARENTHESES
-3. Example: If russian_text = "собака", reply should be "In English, we say: dog (Russian: собака)"
-4. Example: question should be "Example: I have a dog (Пример: У меня есть собака)"
-5. IMPORTANT: Russian text MUST be in parentheses so TTS can skip it{level_note}
-6. Output ONLY valid JSON, nothing else
+CRITICAL RULES:
+1. Give ONLY ONE simple, direct translation - the most common word
+2. NO explanations, NO history, NO additional info - just the translation!
+3. Example: If "{russian_text}" = "ручка", reply MUST be: "In English, we say: pen (Russian: ручка)"
+4. Example sentence must be VERY SIMPLE, like "I have a pen" or "This is a pen"
+5. For A1-A2 levels: use only basic words and simple present tense
+6. Russian text MUST be in parentheses so TTS can skip it{level_note}
+7. Keep it SHORT and SIMPLE - beginners need clarity, not complexity!
+
+BAD example (TOO COMPLEX):
+"The English pen is actually called a 'fountain pen' or simply a 'pen'. It's used for writing..."
+
+GOOD example (SIMPLE):
+"In English, we say: pen (Russian: ручка)"
 
 Respond ONLY with valid JSON:"""
 
