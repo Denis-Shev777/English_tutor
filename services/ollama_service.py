@@ -240,8 +240,8 @@ def is_russian_query(user_text: str):
     if match:
         return (True, 'translate_to_en', match.group(1).strip())
 
-    # "Что значит слово" или "Что означает слово"
-    match = re.search(r'что\s+(?:значит|означает)[\s:]+(.+)', user_text, re.IGNORECASE)
+    # "Что значит/означает/такое слово"
+    match = re.search(r'что\s+(?:значит|означает|такое)[\s:]+(.+)', user_text, re.IGNORECASE)
     if match:
         return (True, 'what_means', match.group(1).strip())
 
@@ -250,8 +250,8 @@ def is_russian_query(user_text: str):
     if match:
         return (True, 'translate_to_en', match.group(1).strip())
 
-    # "Как по-английски: слово"
-    match = re.search(r'как\s+по-английски[\s:]+(.+)', user_text, re.IGNORECASE)
+    # "Как по английски: слово" (БЕЗ дефиса) или "Как по-английски: слово" (С дефисом)
+    match = re.search(r'как\s+по[\s\-]английски[\s:]+(.+)', user_text, re.IGNORECASE)
     if match:
         return (True, 'translate_to_en', match.group(1).strip())
 
