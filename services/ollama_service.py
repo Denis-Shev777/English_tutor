@@ -235,15 +235,16 @@ def is_translation_request(user_text: str):
     Returns: (bool, str) - (True/False, extracted_word или None)
     """
     patterns = [
-        # "What is mean..." / "What does mean..."
-        r"what\s+(?:does|is)\s+(?:mean\s+)?['\"]?(\w+)['\"]?",
-        r"what\s+is\s+mean\s+['\"]?(\w+)['\"]?",
-        r"what's\s+mean\s+['\"]?(\w+)['\"]?",
-        r"what\s+mean\s+['\"]?(\w+)['\"]?",
-        # "Meaning of..."
+        # "Word: [word]" или "Word [word]" - ПРИОРИТЕТ!
+        r"word[\s:]+['\"]?(\w+)['\"]?",
+        # "Translate, [word]" или "Translate [word]"
+        r"translate[\s,]+['\"]?(\w+)['\"]?",
+        # "What is/does [word] mean" (НЕ "what is it [word]")
+        r"what\s+(?:does|is)\s+['\"]?(\w+)['\"]?\s+mean",
+        # "What mean [word]" / "What's mean [word]"
+        r"what'?s?\s+mean\s+['\"]?(\w+)['\"]?",
+        # "Meaning of [word]"
         r"meaning\s+of\s+['\"]?(\w+)['\"]?",
-        # "Translate..."
-        r"translate\s+(?:please\s+)?['\"]?(\w+)['\"]?",
         # "Give me situation/example with word..."
         r"give\s+me\s+(?:a\s+)?(?:situation|example|sentence)\s+(?:with\s+)?(?:word\s+)?['\"]?(\w+)['\"]?",
         r"situation\s+with\s+(?:word\s+)?['\"]?(\w+)['\"]?",
@@ -251,7 +252,7 @@ def is_translation_request(user_text: str):
         # "Use word ... in sentence"
         r"use\s+(?:word\s+)?['\"]?(\w+)['\"]?\s+in\s+(?:a\s+)?(?:sentence|example)",
         r"how\s+to\s+use\s+['\"]?(\w+)['\"]?",
-        # "Explain word..."
+        # "Explain [word]"
         r"explain\s+(?:word\s+)?['\"]?(\w+)['\"]?",
     ]
 
@@ -259,6 +260,9 @@ def is_translation_request(user_text: str):
         match = re.search(pattern, user_text.lower())
         if match:
             word = match.group(1).lower()
+            # Игнорируем служебные слова
+            if word in ['it', 'is', 'a', 'an', 'the', 'for', 'to', 'of', 'in', 'on', 'at', 'me', 'you', 'please']:
+                continue
             return (True, word)
 
     return (False, None)
