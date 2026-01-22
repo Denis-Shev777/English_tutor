@@ -265,8 +265,10 @@ def is_translation_request(user_text: str):
     patterns = [
         # "Word: [word]" или "Word [word]" - ПРИОРИТЕТ!
         r"word[\s:]+['\"]?(\w+)['\"]?",
-        # "Translate please, [word]" или "Translate [word]" (игнорируем "please")
-        r"translate[\s,]+(?:please[\s,]+)?['\"]?(\w+)['\"]?",
+        # "Translate please, [word]" - игнорируем please, берем [word]
+        r"translate[\s,]+please[\s,]+['\"]?(\w+)['\"]?",
+        # "Translate [word]" - берем [word] (может быть и "please" если это единственное слово)
+        r"translate[\s,]+['\"]?(\w+)['\"]?",
         # "What is/does [word] mean" (НЕ "what is it [word]")
         r"what\s+(?:does|is)\s+['\"]?(\w+)['\"]?\s+mean",
         # "What mean [word]" / "What's mean [word]"
@@ -288,8 +290,8 @@ def is_translation_request(user_text: str):
         match = re.search(pattern, user_text.lower())
         if match:
             word = match.group(1).lower()
-            # Игнорируем служебные слова
-            if word in ['it', 'is', 'a', 'an', 'the', 'for', 'to', 'of', 'in', 'on', 'at', 'me', 'you', 'please']:
+            # Игнорируем служебные слова (НЕ включаем "please" - его можно переводить!)
+            if word in ['it', 'is', 'a', 'an', 'the', 'for', 'to', 'of', 'in', 'on', 'at', 'me', 'you']:
                 continue
             return (True, word)
 
