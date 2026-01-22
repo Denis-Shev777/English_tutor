@@ -265,8 +265,8 @@ def is_translation_request(user_text: str):
     patterns = [
         # "Word: [word]" или "Word [word]" - ПРИОРИТЕТ!
         r"word[\s:]+['\"]?(\w+)['\"]?",
-        # "Translate, [word]" или "Translate [word]"
-        r"translate[\s,]+['\"]?(\w+)['\"]?",
+        # "Translate please, [word]" или "Translate [word]" (игнорируем "please")
+        r"translate[\s,]+(?:please[\s,]+)?['\"]?(\w+)['\"]?",
         # "What is/does [word] mean" (НЕ "what is it [word]")
         r"what\s+(?:does|is)\s+['\"]?(\w+)['\"]?\s+mean",
         # "What mean [word]" / "What's mean [word]"
