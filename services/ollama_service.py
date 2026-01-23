@@ -1,14 +1,17 @@
 import requests
 import re
 import json
+import os
 from datetime import datetime
 from difflib import get_close_matches
 from logger import get_logger
+from groq import Groq
 
 logger = get_logger(__name__)
 
-OLLAMA_API_URL = "http://localhost:11434/api/generate"
-MODEL_NAME = "llama3:latest"
+# Groq client initialization (FREE!)
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+MODEL_NAME = "llama-3.1-8b-instant"  # Быстрая бесплатная модель
 
 COMMON_WORDS = {
     # === БАЗОВЫЕ СЛОВА ===
@@ -879,45 +882,36 @@ def check_word_and_suggest(user_text: str):
 
 
 def call_ollama_raw(prompt: str) -> str:
-    """Единая функция вызова Ollama"""
+    """Вызов Groq API (бесплатный Llama 3.1)"""
     try:
-        response = requests.post(
-            OLLAMA_API_URL,
-            json={
-                "model": MODEL_NAME,
-                "prompt": prompt,
-                "stream": False,
-                "options": {"temperature": 0.5, "top_p": 0.9, "max_tokens": 250},
-            },
-            timeout=30,
+        response = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.5,
+            top_p=0.9,
+            max_tokens=250,
         )
 
-        if response.status_code == 200:
-            result = response.json()
-            bot_response = (result.get("response", "") or "").strip()
+        bot_response = response.choices[0].message.content.strip()
 
-            # чистим мусор
-            bot_response = re.sub(r"\(Note:.*?\)", "", bot_response, flags=re.DOTALL)
-            bot_response = re.sub(
-                r"\(I corrected.*?\)", "", bot_response, flags=re.DOTALL
-            )
-            bot_response = bot_response.strip()
-
-            # если вдруг модель вернула пустые поля перевода — убираем блок
-            if "Perevod: None" in bot_response or "Primer: None" in bot_response:
-                if "---" in bot_response:
-                    bot_response = bot_response.split("---")[0].strip()
-
-            return bot_response
-
-        logger.error(f"Ollama API error: {response.status_code}")
-        return (
-            "⚠️ Извините, сейчас технические неполадки с ИИ.\n"
-            "Попробуйте отправить сообщение через минуту."
+        # чистим мусор
+        bot_response = re.sub(r"\(Note:.*?\)", "", bot_response, flags=re.DOTALL)
+        bot_response = re.sub(
+            r"\(I corrected.*?\)", "", bot_response, flags=re.DOTALL
         )
+        bot_response = bot_response.strip()
+
+        # если вдруг модель вернула пустые поля перевода — убираем блок
+        if "Perevod: None" in bot_response or "Primer: None" in bot_response:
+            if "---" in bot_response:
+                bot_response = bot_response.split("---")[0].strip()
+
+        return bot_response
 
     except Exception as e:
-        logger.error(f"Error calling Ollama: {e}", exc_info=True)
+        logger.error(f"Error calling Groq API: {e}", exc_info=True)
         return (
             "⚠️ Извините, сейчас технические неполадки с ИИ.\n"
             "Попробуйте отправить сообщение через минуту."
