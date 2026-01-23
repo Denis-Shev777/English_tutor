@@ -48,7 +48,10 @@ def get_main_menu(user_id=None, username=None):
                     KeyboardButton(text="📈 Статистика"),
                 ],
                 [
+                    KeyboardButton(text="🎯 Проверить уровень"),
                     KeyboardButton(text="🧠 Очистить память"),
+                ],
+                [
                     KeyboardButton(text="❓ Помощь"),
                 ],
             ],
@@ -64,7 +67,10 @@ def get_main_menu(user_id=None, username=None):
                     KeyboardButton(text="💎 Продлить Premium"),
                 ],
                 [
+                    KeyboardButton(text="🎯 Проверить уровень"),
                     KeyboardButton(text="🧠 Очистить память"),
+                ],
+                [
                     KeyboardButton(text="❓ Помощь"),
                 ],
             ],
@@ -80,7 +86,10 @@ def get_main_menu(user_id=None, username=None):
                     KeyboardButton(text="💎 Купить Premium"),
                 ],
                 [
+                    KeyboardButton(text="🎯 Проверить уровень"),
                     KeyboardButton(text="🧠 Очистить память"),
+                ],
+                [
                     KeyboardButton(text="❓ Помощь"),
                 ],
             ],
