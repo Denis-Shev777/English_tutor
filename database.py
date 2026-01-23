@@ -134,6 +134,30 @@ def init_db():
             )
             """
         )
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS referrals (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                inviter_id INTEGER NOT NULL,
+                invitee_id INTEGER NOT NULL UNIQUE,
+                referral_code TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(inviter_id) REFERENCES users(user_id),
+                FOREIGN KEY(invitee_id) REFERENCES users(user_id)
+            )
+            """
+        )
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS processed_transactions (
+                tx_hash TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                amount REAL NOT NULL,
+                processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(user_id) REFERENCES users(user_id)
+            )
+            """
+        )
 
 
 def create_user(user_id: int, username: str):
@@ -230,13 +254,14 @@ def has_active_subscription(user_id: int) -> bool:
 
 
 def add_subscription(user_id: int, expires_at: str):
+    """Добавляет или обновляет подписку, продлевая её если новая дата позже текущей."""
     with _connect_locked() as conn:
         conn.execute(
             """
             INSERT INTO subscriptions (user_id, expires_at)
             VALUES (?, ?)
             ON CONFLICT(user_id) DO UPDATE SET expires_at =
-                CASE WHEN expires_at < ? THEN ? ELSE expires_at END
+                CASE WHEN expires_at > ? THEN expires_at ELSE ? END
             """,
             (user_id, expires_at, expires_at, expires_at),
         )
@@ -446,25 +471,50 @@ def add_premium_days(user_id: int, days: int = 1):
         )
         row = cur.fetchone()
 
-        # В SQLite проще всего использовать datetime('now', '+1 day')
+        # В SQLite используем datetime('now', '+N day') напрямую в строке
         if row is None:
+            # Создаём новую подписку на N дней с текущего момента
             cur.execute(
-                "INSERT INTO subscriptions (user_id, expires_at) VALUES (?, datetime('now', ?))",
-                (user_id, f"+{days} day"),
+                f"INSERT INTO subscriptions (user_id, expires_at) VALUES (?, datetime('now', '+{days} day'))",
+                (user_id,),
             )
         else:
             # Если подписка уже есть: продлеваем от max(expires_at, now)
             cur.execute(
-                """
+                f"""
                 UPDATE subscriptions
                 SET expires_at =
                     CASE
-                        WHEN expires_at > datetime('now') THEN datetime(expires_at, ?)
-                        ELSE datetime('now', ?)
+                        WHEN expires_at > datetime('now') THEN datetime(expires_at, '+{days} day')
+                        ELSE datetime('now', '+{days} day')
                     END
                 WHERE user_id = ?
                 """,
-                (f"+{days} day", f"+{days} day", user_id),
+                (user_id,),
             )
 
+        conn.commit()
+
+
+def is_transaction_processed(tx_hash: str) -> bool:
+    """Проверяет, была ли транзакция уже обработана."""
+    with _connect_locked() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT COUNT(*) FROM processed_transactions WHERE tx_hash = ?",
+            (tx_hash,),
+        )
+        return cur.fetchone()[0] > 0
+
+
+def mark_transaction_processed(tx_hash: str, user_id: int, amount: float):
+    """Помечает транзакцию как обработанную."""
+    with _connect_locked() as conn:
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO processed_transactions (tx_hash, user_id, amount)
+            VALUES (?, ?, ?)
+            """,
+            (tx_hash, user_id, amount),
+        )
         conn.commit()
