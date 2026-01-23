@@ -5,13 +5,13 @@ import os
 from datetime import datetime
 from difflib import get_close_matches
 from logger import get_logger
-from openai import OpenAI
+from groq import Groq
 
 logger = get_logger(__name__)
 
-# OpenAI client initialization
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-MODEL_NAME = "gpt-4o-mini"  # Быстрая и дешевая модель
+# Groq client initialization (FREE!)
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+MODEL_NAME = "llama-3.1-8b-instant"  # Быстрая бесплатная модель
 
 COMMON_WORDS = {
     # === БАЗОВЫЕ СЛОВА ===
@@ -882,7 +882,7 @@ def check_word_and_suggest(user_text: str):
 
 
 def call_ollama_raw(prompt: str) -> str:
-    """Вызов OpenAI API (бывший Ollama)"""
+    """Вызов Groq API (бесплатный Llama 3.1)"""
     try:
         response = client.chat.completions.create(
             model=MODEL_NAME,
@@ -892,7 +892,6 @@ def call_ollama_raw(prompt: str) -> str:
             temperature=0.5,
             top_p=0.9,
             max_tokens=250,
-            timeout=30,
         )
 
         bot_response = response.choices[0].message.content.strip()
@@ -912,7 +911,7 @@ def call_ollama_raw(prompt: str) -> str:
         return bot_response
 
     except Exception as e:
-        logger.error(f"Error calling OpenAI: {e}", exc_info=True)
+        logger.error(f"Error calling Groq API: {e}", exc_info=True)
         return (
             "⚠️ Извините, сейчас технические неполадки с ИИ.\n"
             "Попробуйте отправить сообщение через минуту."
