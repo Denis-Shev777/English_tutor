@@ -1,6 +1,7 @@
 aiogram==3.24.0
 faster-whisper
 gTTS
+openai
 requests>=2.31.0
 python-dotenv
 pydub
