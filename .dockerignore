@@ -50,3 +50,11 @@ test_*.py
 *.tmp
 *.bak
 .DS_Store
+
+# Дополнительные файлы для уменьшения размера образа
+*.xlsx
+*.sqbpro
+тест/
+.dockerignore
+Dockerfile
+.env.example
