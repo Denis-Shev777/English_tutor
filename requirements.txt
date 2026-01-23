@@ -1,6 +1,6 @@
 aiogram==3.24.0
 faster-whisper
-TTS
+gTTS
 requests>=2.31.0
 python-dotenv
 pydub

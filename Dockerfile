@@ -1,37 +1,32 @@
 # Используем slim образ для минимального размера
 FROM python:3.11-slim
 
-# Установка системных зависимостей
+# Установка только ffmpeg (НЕ НУЖЕН git, все зависимости из PyPI)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
-    git \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
 WORKDIR /app
 
-# Копирование requirements.txt ПЕРВЫМ для кеширования слоя
+# Копирование requirements.txt для установки зависимостей
 COPY requirements.txt .
 
-# Установка зависимостей по частям для лучшего кеширования
-# 1. Сначала PyTorch (самый тяжелый)
-RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+# Установка Python зависимостей (БЕЗ PyTorch!)
+# gTTS + faster-whisper + aiogram = легкий стек без ML фреймворков
+RUN pip install --no-cache-dir -r requirements.txt && \
+    pip cache purge && \
+    rm -rf /root/.cache/pip
 
-# 2. Потом остальные зависимости
-RUN pip install --no-cache-dir -r requirements.txt
-
-# 3. Очистка pip кеша
-RUN pip cache purge && rm -rf /root/.cache/pip
-
-# Копирование кода проекта ПОСЛЕ установки зависимостей
+# Копирование кода приложения
 COPY *.py ./
 COPY handlers ./handlers
 COPY services ./services
 
-# Создание необходимых директорий
+# Создание директории для логов
 RUN mkdir -p logs
 
-# Оптимизация Python
+# Переменные окружения для оптимизации
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
