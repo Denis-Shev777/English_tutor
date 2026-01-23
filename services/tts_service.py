@@ -6,7 +6,7 @@ import re
 
 print("🎤 Загрузка Coqui TTS модели...")
 
-tts = TTS(model_name="tts_models/en/vctk/vits", gpu=True)
+tts = TTS(model_name="tts_models/en/vctk/vits", gpu=False)
 
 print("✅ Coqui TTS готов!")
 
