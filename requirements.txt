@@ -1,8 +1,6 @@
 aiogram==3.24.0
-openai-whisper
-google-cloud-texttospeech
-TTS
+faster-whisper
+gTTS
 requests>=2.31.0
 python-dotenv
-ffmpeg-python
 pydub

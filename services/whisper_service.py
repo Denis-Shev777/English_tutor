@@ -1,14 +1,14 @@
-import whisper
+from faster_whisper import WhisperModel
 import os
 from pydub import AudioSegment
 import tempfile
 
-print("🎧 Загрузка Whisper модели...")
+print("🎧 Загрузка Faster-Whisper модели...")
 
-# Используем модель "base" - хороший баланс скорости и качества
-model = whisper.load_model("base")
+# Используем модель "base" с CPU - быстрее и легче чем openai-whisper
+model = WhisperModel("base", device="cpu", compute_type="int8")
 
-print("✅ Whisper готов!")
+print("✅ Faster-Whisper готов!")
 
 def transcribe_audio(audio_file_path):
     """
@@ -48,27 +48,30 @@ def transcribe_audio(audio_file_path):
         audio.export(wav_path, format="wav")
         print(f"✅ Конвертировано: {wav_path}")
         
-        print(f"🎧 Распознаю речь (передаю путь к файлу)...")
-        
-        # ВАЖНО: Передаём ПУТЬ к файлу, а не numpy array!
-        result = model.transcribe(
-            wav_path, 
+        print(f"🎧 Распознаю речь через Faster-Whisper...")
+
+        # Faster-Whisper API: transcribe возвращает (segments, info)
+        segments, info = model.transcribe(
+            wav_path,
             language="en",
-            fp16=False,
-            verbose=True  # Показывать процесс распознавания
+            beam_size=5,
+            vad_filter=True  # Фильтр голосовой активности
         )
-        
-        # Получаем текст
-        text = result["text"].strip()
-        
-        # Показываем также segments (части речи)
-        if "segments" in result and result["segments"]:
-            print(f"📝 Segments найдено: {len(result['segments'])}")
-            for i, seg in enumerate(result["segments"][:3]):  # Первые 3
-                print(f"  Segment {i+1}: '{seg['text'].strip()}'")
-        
+
+        # Собираем текст из сегментов
+        text_parts = []
+        segment_count = 0
+        for segment in segments:
+            text_parts.append(segment.text.strip())
+            segment_count += 1
+            if segment_count <= 3:  # Показываем первые 3 сегмента
+                print(f"  Segment {segment_count}: '{segment.text.strip()}'")
+
+        text = " ".join(text_parts).strip()
+
         if text:
             print(f"✅ Распознано: '{text}'")
+            print(f"📝 Всего сегментов: {segment_count}")
         else:
             print("⚠️ Whisper вернул пустую строку")
             print(f"⚠️ Проверь что голосовое НЕ пустое и достаточно громкое")

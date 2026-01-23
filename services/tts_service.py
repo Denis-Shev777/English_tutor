@@ -1,23 +1,22 @@
-from TTS.api import TTS
+from gtts import gTTS
 from pydub import AudioSegment
 import os
 import tempfile
 import re
 
-print("🎤 Загрузка Coqui TTS модели...")
+print("🎤 Инициализация Google TTS (gTTS)...")
+print("✅ gTTS готов!")
 
-tts = TTS(model_name="tts_models/en/vctk/vits", gpu=False)
+# gTTS параметры
+LANGUAGE = "en"
+TLD = "com"  # Top Level Domain - влияет на акцент (com = US accent)
+SLOW = False  # Если True - медленная речь для обучения
 
-print("✅ Coqui TTS готов!")
-
-SPEAKER = "p260"  # Профессиональный женский голос
-
-# СКОРОСТЬ РЕЧИ для обучения
+# СКОРОСТЬ РЕЧИ (через pydub обработку)
 # 1.0 = нормальная
-# 0.92 = совсем чуть медленнее (почти не меняет тон)
-# 0.90 = чуть медленнее (оптимально)
-# 0.85 = медленнее (начинает меняться тон)
-SPEECH_SPEED = 0.89  # Оптимальный баланс!
+# 0.92 = совсем чуть медленнее
+# 0.90 = чуть медленнее (оптимально для обучения)
+SPEECH_SPEED = 0.92  # Чуть медленнее для лучшего понимания
 
 def remove_emojis(text):
     """Удалить все эмодзи из текста"""
@@ -41,12 +40,12 @@ def remove_emojis(text):
 
 def text_to_speech(text, output_path=None):
     """
-    Преобразовать текст в речь с небольшим замедлением
-    
+    Преобразовать текст в речь с помощью Google TTS
+
     Args:
         text: текст для синтеза
-        output_path: путь для сохранения
-    
+        output_path: путь для сохранения (должен быть .wav)
+
     Returns:
         str: путь к созданному аудио файлу
     """
@@ -54,77 +53,60 @@ def text_to_speech(text, output_path=None):
         # УБИРАЕМ ЭМОДЗИ перед генерацией голоса
         clean_text = remove_emojis(text)
         clean_text = clean_text.strip()
-        
+
         if not clean_text:
             print("⚠️ Текст пустой после удаления эмодзи, пропускаю генерацию голоса")
             return None
-        
-        # Создаём временный файл для оригинального аудио
-        temp_original = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
-        temp_original_path = temp_original.name
-        temp_original.close()
-        
-        print(f"🎤 Генерирую голос (без эмодзи): {clean_text[:50]}...")
-        
-        # Генерируем речь БЕЗ эмодзи
-        tts.tts_to_file(
-            text=clean_text,
-            file_path=temp_original_path,
-            speaker=SPEAKER
-        )
-        
-        # Если скорость = 1.0, не обрабатываем
-        if SPEECH_SPEED == 1.0:
-            if output_path:
-                import shutil
-                shutil.copy(temp_original_path, output_path)
-                os.remove(temp_original_path)
-                print(f"✅ Аудио создано (нормальная скорость): {output_path}")
-                return output_path
-            else:
-                print(f"✅ Аудио создано (нормальная скорость): {temp_original_path}")
-                return temp_original_path
-        
-        # Загружаем аудио
-        audio = AudioSegment.from_wav(temp_original_path)
-        
-        # Замедляем аудио (небольшое изменение тона допустимо)
-        slowed_audio = audio._spawn(
-            audio.raw_data,
-            overrides={
-                "frame_rate": int(audio.frame_rate * SPEECH_SPEED)
-            }
-        ).set_frame_rate(audio.frame_rate)
-        
+
+        print(f"🎤 Генерирую голос через Google TTS: {clean_text[:50]}...")
+
+        # Создаём временный MP3 файл (gTTS генерирует MP3)
+        temp_mp3 = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
+        temp_mp3_path = temp_mp3.name
+        temp_mp3.close()
+
+        # Генерируем речь с помощью gTTS
+        tts_obj = gTTS(text=clean_text, lang=LANGUAGE, tld=TLD, slow=SLOW)
+        tts_obj.save(temp_mp3_path)
+
+        print(f"✅ gTTS сгенерировал MP3")
+
+        # Конвертируем MP3 в WAV и применяем замедление если нужно
+        audio = AudioSegment.from_mp3(temp_mp3_path)
+
+        # Если нужно замедлить
+        if SPEECH_SPEED != 1.0:
+            audio = audio._spawn(
+                audio.raw_data,
+                overrides={
+                    "frame_rate": int(audio.frame_rate * SPEECH_SPEED)
+                }
+            ).set_frame_rate(audio.frame_rate)
+            print(f"🎚 Применена скорость {SPEECH_SPEED}")
+
         # Если путь не указан - создаём новый временный файл
         if output_path is None:
             temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
             output_path = temp_file.name
             temp_file.close()
-        
-        # Сохраняем замедленное аудио
-        slowed_audio.export(output_path, format="wav")
-        
-        # Удаляем временный оригинал
+
+        # Сохраняем как WAV
+        audio.export(output_path, format="wav")
+
+        # Удаляем временный MP3
         try:
-            os.remove(temp_original_path)
+            os.remove(temp_mp3_path)
         except:
             pass
-        
-        print(f"✅ Аудио создано со скоростью {SPEECH_SPEED}: {output_path}")
+
+        print(f"✅ Аудио создано: {output_path}")
         return output_path
-        
+
     except Exception as e:
         print(f"❌ TTS error: {e}")
         import traceback
         traceback.print_exc()
         return None
-
-def change_speaker(speaker_id):
-    """Изменить голос"""
-    global SPEAKER
-    SPEAKER = speaker_id
-    print(f"✅ Голос изменён на: {SPEAKER}")
 
 def change_speed(speed):
     """Изменить скорость речи"""
@@ -132,29 +114,26 @@ def change_speed(speed):
     SPEECH_SPEED = speed
     print(f"✅ Скорость речи изменена на: {SPEECH_SPEED}")
 
-def list_female_speakers():
-    """Список проверенных женских голосов"""
-    return {
-        'p225': 'Молодой, мягкий',
-        'p226': 'Средний возраст',
-        'p228': 'Энергичный',
-        'p231': 'Спокойный',
-        'p233': 'Уверенный',
-        'p236': 'Приятный',
-        'p244': 'Профессиональный (текущий)',
-        'p248': 'Дружелюбный',
-        'p250': 'Нейтральный',
-        'p253': 'Теплый',
-        'p257': 'Энергичный 2',
-        'p258': 'Нейтральный 2',
-    }
+def change_accent(tld):
+    """
+    Изменить акцент (через TLD)
+    com = US, co.uk = UK, com.au = Australian, co.in = Indian, ca = Canadian
+    """
+    global TLD
+    TLD = tld
+    print(f"✅ Акцент изменён на: {tld}")
+
+def enable_slow_mode(enabled=True):
+    """Включить/выключить медленный режим (для начинающих)"""
+    global SLOW
+    SLOW = enabled
+    print(f"✅ Медленный режим: {'включен' if enabled else 'выключен'}")
 
 # При импорте показываем настройки
-print("📋 Доступные женские голоса:")
-for speaker, description in list_female_speakers().items():
-    marker = "⭐" if speaker == SPEAKER else "  "
-    print(f"{marker} {speaker}: {description}")
-
-print(f"\n🎚 Скорость речи: {SPEECH_SPEED}")
+print("📋 Google TTS настройки:")
+print(f"  🌍 Язык: {LANGUAGE}")
+print(f"  🗣 Акцент: {TLD} (US accent)")
+print(f"  🎚 Скорость: {SPEECH_SPEED}")
+print(f"  🐌 Медленный режим: {'Да' if SLOW else 'Нет'}")
 print("✨ Эмодзи автоматически удаляются перед озвучкой")
-print("💡 Рекомендации: 0.90-0.95 = оптимально, 1.0 = нормально")
+print("💡 Доступные акценты: com (US), co.uk (UK), com.au (AU), co.in (IN), ca (CA)")
