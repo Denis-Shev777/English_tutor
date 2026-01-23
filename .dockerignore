@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+
+# Среда разработки
+.env
+.env.local
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# База данных
+*.db
+*.sqlite
+*.sqlite3
+
+# Логи
+logs/
+*.log
+
+# Git
+.git/
+.gitignore
+
+# Документация
+README.md
+*.md
+
+# Тесты
+tests/
+test_*.py
+*_test.py
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Временные файлы
+*.tmp
+*.bak
+.DS_Store
