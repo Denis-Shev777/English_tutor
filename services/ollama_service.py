@@ -881,14 +881,21 @@ def check_word_and_suggest(user_text: str):
     return None
 
 
-def call_ollama_raw(prompt: str) -> str:
+def call_ollama_raw(prompt: str, system_prompt: str = None) -> str:
     """Вызов Groq API (бесплатный Llama 3.1)"""
     try:
+        messages = []
+
+        # Если есть system prompt - добавляем как отдельное сообщение
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+
+        # Добавляем пользовательский промпт
+        messages.append({"role": "user", "content": prompt})
+
         response = client.chat.completions.create(
             model=MODEL_NAME,
-            messages=[
-                {"role": "user", "content": prompt}
-            ],
+            messages=messages,
             temperature=0.5,
             top_p=0.9,
             max_tokens=250,
@@ -992,15 +999,18 @@ Russian translation:"""
     }
     style = LEVEL_STYLE.get(level, LEVEL_STYLE["A1"])
 
-    full_prompt = f"""{SYSTEM_PROMPT}
+    # Расширенный system prompt с контекстом
+    enhanced_system_prompt = f"""{SYSTEM_PROMPT}
 IMPORTANT: Today's date is {current_date}.
 Student level: {level}
-Teaching style: {style}
-Conversation history:{conversation}
+Teaching style: {style}"""
+
+    # User prompt с историей и текущим сообщением
+    user_prompt = f"""Conversation history:{conversation}
 Student: {user_text}
 Teacher:"""
 
-    raw_response = call_ollama_raw(full_prompt).strip()
+    raw_response = call_ollama_raw(user_prompt, system_prompt=enhanced_system_prompt).strip()
 
     # === ПАРСИНГ JSON ===
     try:
