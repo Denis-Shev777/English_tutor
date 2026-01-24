@@ -823,11 +823,16 @@ RULES:
 - NEVER output labels like "Correct:", "Tip:", or "Question:".
 - NEVER explain your JSON structure.
 - Use only English in all fields except inside translation blocks (see below).
-- If student asks for translation, include this block in "reply":
+
+WORD MEANING FORMAT (when student asks "what is X" or "что значит X"):
+For A1-A2 levels: Give VERY SIMPLE explanation (5-7 words max)
+For B1-B2 levels: Can give more detailed explanation
+ALWAYS include in "reply":
 ---
-Perevod: X - (Russian)
-Primer: (English) (Russian)
+Animal - животное
+Example: I have a pet. It's an animal. - У меня есть питомец. Это животное.
 ---
+
 - Keep "reply" conversational and human-like.
 - For A1/A2, make "quick_replies" extremely simple.
 - Output ONLY the JSON object. No extra text, no markdown, no ```json.
@@ -920,11 +925,88 @@ def call_ollama_raw(prompt: str) -> str:
         )
 
 
+def extract_word_from_query(user_text: str):
+    """Извлекает слово из запроса о значении (на русском или английском)"""
+    lower = user_text.strip().lower()
+
+    # Паттерны для английских запросов
+    en_patterns = [
+        r"^\s*what\s+is\s+(?:mean\s+)?(\w+)\s*\??\s*$",         # what is mean animal / what is animal
+        r"^\s*what\s+does\s+(\w+)\s+mean\s*\??\s*$",            # what does animal mean
+        r"^\s*meaning\s+of\s+(\w+)\s*\??\s*$",                  # meaning of animal
+        r"^\s*translate\s+(?:please\s+)?(\w+)\s*\??\s*$",       # translate animal / translate please animal
+        r"^\s*what\s+is\s+mean\s+by\s+(\w+)\s*\??\s*$",         # what is mean by animal
+        r"^\s*what's\s+(\w+)\s*\??\s*$",                        # what's animal
+    ]
+
+    # Паттерны для русских запросов
+    ru_patterns = [
+        r"^\s*что\s+значит\s+(?:-\s*)?(\w+)\s*\??\s*$",         # что значит animal / что значит - animal
+        r"^\s*что\s+такое\s+(\w+)\s*\??\s*$",                   # что такое animal
+        r"^\s*значение\s+(\w+)\s*\??\s*$",                      # значение animal
+        r"^\s*переведи\s+(?:слово\s+)?(?:пожалуйста\s+)?(\w+)\s*\??\s*$",  # переведи animal / переведи пожалуйста animal
+        r"^\s*перевод\s+(\w+)\s*\??\s*$",                       # перевод animal
+        r"^\s*(\w+)\s*-\s*это\s+что\s*\??\s*$",                 # animal - это что?
+        r"^\s*(\w+)\s*-\s*что\s+это\s*\??\s*$",                 # animal - что это?
+    ]
+
+    for pattern in en_patterns + ru_patterns:
+        match = re.search(pattern, lower)
+        if match:
+            return match.group(1)
+
+    return None
+
+
 def get_ollama_response(user_text: str, history: list = None, level: str = "A1"):
     """Получить структурированный ответ от Ollama в виде dict"""
     lower = user_text.strip().lower()
 
-    # --- TRANSLATE MODE (оставляем как есть) ---
+    # --- WORD MEANING MODE (приоритет!) ---
+    word_to_explain = extract_word_from_query(user_text)
+    if word_to_explain:
+        # Специальный промпт для объяснения значения слова
+        if level in ["A1", "A2"]:
+            explain_prompt = f"""You are teaching English to A1-A2 beginner students.
+Explain the word "{word_to_explain}" in VERY SIMPLE English.
+
+Rules:
+1. First line: ONE SHORT sentence (5-8 words) explaining the meaning
+2. Second line: Word - Russian translation (ONLY ONE main translation)
+3. Third line: Example with translation
+
+Example format:
+Not the same.
+Different - другой, различный
+Example: This pen is different. - Эта ручка другая.
+
+Now explain "{word_to_explain}"."""
+        else:
+            explain_prompt = f"""You are teaching English to {level} students.
+Explain the word "{word_to_explain}".
+
+Rules:
+1. First line: Clear short explanation
+2. Second line: Word - Russian translation
+3. Third line: Example with translation
+
+Example format:
+Not the same as something else.
+Different - другой, различный, отличающийся
+Example: Everyone is different in their own way. - Каждый по-своему уникален.
+
+Now explain "{word_to_explain}"."""
+
+        raw_explanation = call_ollama_raw(explain_prompt)
+        return {
+            "reply": raw_explanation,
+            "question": None,
+            "quick_replies": [],
+            "correction": None,
+            "tip": None,
+        }
+
+    # --- TRANSLATE MODE (полный текст) ---
     if (
         lower.startswith("translate")
         or lower.startswith("переведи")
