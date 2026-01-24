@@ -881,21 +881,16 @@ def check_word_and_suggest(user_text: str):
     return None
 
 
-def call_ollama_raw(prompt: str, system_prompt: str = None) -> str:
-    """Вызов Groq API (бесплатный Llama 3.1)"""
+def call_ollama_raw(prompt: str) -> str:
+    """Вызов Groq API (бесплатный Llama 3.1) - формат как в оригинальном Ollama"""
     try:
-        messages = []
-
-        # Если есть system prompt - добавляем как отдельное сообщение
-        if system_prompt:
-            messages.append({"role": "system", "content": system_prompt})
-
-        # Добавляем пользовательский промпт
-        messages.append({"role": "user", "content": prompt})
-
+        # Отправляем весь промпт единым блоком как в оригинальной версии с Ollama
+        # Это обеспечивает идентичное поведение модели
         response = client.chat.completions.create(
             model=MODEL_NAME,
-            messages=messages,
+            messages=[
+                {"role": "user", "content": prompt}
+            ],
             temperature=0.5,
             top_p=0.9,
             max_tokens=250,
@@ -999,18 +994,16 @@ Russian translation:"""
     }
     style = LEVEL_STYLE.get(level, LEVEL_STYLE["A1"])
 
-    # Расширенный system prompt с контекстом
-    enhanced_system_prompt = f"""{SYSTEM_PROMPT}
+    # ОРИГИНАЛЬНЫЙ ФОРМАТ - весь промпт единым блоком как в Ollama версии
+    full_prompt = f"""{SYSTEM_PROMPT}
 IMPORTANT: Today's date is {current_date}.
 Student level: {level}
-Teaching style: {style}"""
-
-    # User prompt с историей и текущим сообщением
-    user_prompt = f"""Conversation history:{conversation}
+Teaching style: {style}
+Conversation history:{conversation}
 Student: {user_text}
 Teacher:"""
 
-    raw_response = call_ollama_raw(user_prompt, system_prompt=enhanced_system_prompt).strip()
+    raw_response = call_ollama_raw(full_prompt).strip()
 
     # === ПАРСИНГ JSON ===
     try:
