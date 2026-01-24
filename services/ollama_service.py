@@ -931,21 +931,23 @@ def extract_word_from_query(user_text: str):
 
     # Паттерны для английских запросов
     en_patterns = [
-        r"^\s*what\s+is\s+(?:mean\s+)?(\w+)\s*\??\s*$",  # what is mean animal / what is animal
-        r"^\s*what\s+does\s+(\w+)\s+mean\s*\??\s*$",     # what does animal mean
-        r"^\s*meaning\s+of\s+(\w+)\s*\??\s*$",           # meaning of animal
-        r"^\s*translate\s+(\w+)\s*\??\s*$",              # translate animal
-        r"^\s*what\s+is\s+mean\s+by\s+(\w+)\s*\??\s*$",  # what is mean by animal
+        r"^\s*what\s+is\s+(?:mean\s+)?(\w+)\s*\??\s*$",         # what is mean animal / what is animal
+        r"^\s*what\s+does\s+(\w+)\s+mean\s*\??\s*$",            # what does animal mean
+        r"^\s*meaning\s+of\s+(\w+)\s*\??\s*$",                  # meaning of animal
+        r"^\s*translate\s+(?:please\s+)?(\w+)\s*\??\s*$",       # translate animal / translate please animal
+        r"^\s*what\s+is\s+mean\s+by\s+(\w+)\s*\??\s*$",         # what is mean by animal
+        r"^\s*what's\s+(\w+)\s*\??\s*$",                        # what's animal
     ]
 
     # Паттерны для русских запросов
     ru_patterns = [
-        r"^\s*что\s+значит\s+(?:-\s*)?(\w+)\s*\??\s*$",   # что значит animal / что значит - animal
-        r"^\s*что\s+такое\s+(\w+)\s*\??\s*$",             # что такое animal
-        r"^\s*значение\s+(\w+)\s*\??\s*$",                # значение animal
-        r"^\s*переведи\s+(?:слово\s+)?(\w+)\s*\??\s*$",   # переведи animal / переведи слово animal
-        r"^\s*перевод\s+(\w+)\s*\??\s*$",                 # перевод animal
-        r"^\s*(\w+)\s*-\s*это\s+что\s*\??\s*$",           # animal - это что?
+        r"^\s*что\s+значит\s+(?:-\s*)?(\w+)\s*\??\s*$",         # что значит animal / что значит - animal
+        r"^\s*что\s+такое\s+(\w+)\s*\??\s*$",                   # что такое animal
+        r"^\s*значение\s+(\w+)\s*\??\s*$",                      # значение animal
+        r"^\s*переведи\s+(?:слово\s+)?(?:пожалуйста\s+)?(\w+)\s*\??\s*$",  # переведи animal / переведи пожалуйста animal
+        r"^\s*перевод\s+(\w+)\s*\??\s*$",                       # перевод animal
+        r"^\s*(\w+)\s*-\s*это\s+что\s*\??\s*$",                 # animal - это что?
+        r"^\s*(\w+)\s*-\s*что\s+это\s*\??\s*$",                 # animal - что это?
     ]
 
     for pattern in en_patterns + ru_patterns:
@@ -965,28 +967,35 @@ def get_ollama_response(user_text: str, history: list = None, level: str = "A1")
     if word_to_explain:
         # Специальный промпт для объяснения значения слова
         if level in ["A1", "A2"]:
-            explain_prompt = f"""Explain the word "{word_to_explain}" in VERY SIMPLE English (5-7 words max).
-Then provide Russian translation and simple example.
+            explain_prompt = f"""You are teaching English to A1-A2 beginner students.
+Explain the word "{word_to_explain}" in VERY SIMPLE English.
 
-Format:
----
-{word_to_explain.capitalize()} - (Russian translation)
-Example: (Simple English sentence) - (Russian translation)
----
+Rules:
+1. First line: ONE SHORT sentence (5-8 words) explaining the meaning
+2. Second line: Word - Russian translation (ONLY ONE main translation)
+3. Third line: Example with translation
 
-Student level: {level}
-Give only simple explanation for beginners."""
+Example format:
+Not the same.
+Different - другой, различный
+Example: This pen is different. - Эта ручка другая.
+
+Now explain "{word_to_explain}"."""
         else:
-            explain_prompt = f"""Explain the word "{word_to_explain}" clearly.
-Provide Russian translation and example sentence.
+            explain_prompt = f"""You are teaching English to {level} students.
+Explain the word "{word_to_explain}".
 
-Format:
----
-{word_to_explain.capitalize()} - (Russian translation)
-Example: (English sentence) - (Russian translation)
----
+Rules:
+1. First line: Clear short explanation
+2. Second line: Word - Russian translation
+3. Third line: Example with translation
 
-Student level: {level}"""
+Example format:
+Not the same as something else.
+Different - другой, различный, отличающийся
+Example: Everyone is different in their own way. - Каждый по-своему уникален.
+
+Now explain "{word_to_explain}"."""
 
         raw_explanation = call_ollama_raw(explain_prompt)
         return {
