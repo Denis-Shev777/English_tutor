@@ -882,8 +882,10 @@ def check_word_and_suggest(user_text: str):
 
 
 def call_ollama_raw(prompt: str) -> str:
-    """Вызов Groq API (бесплатный Llama 3.1)"""
+    """Вызов Groq API (бесплатный Llama 3.1) - формат как в оригинальном Ollama"""
     try:
+        # Отправляем весь промпт единым блоком как в оригинальной версии с Ollama
+        # Это обеспечивает идентичное поведение модели
         response = client.chat.completions.create(
             model=MODEL_NAME,
             messages=[
@@ -992,6 +994,7 @@ Russian translation:"""
     }
     style = LEVEL_STYLE.get(level, LEVEL_STYLE["A1"])
 
+    # ОРИГИНАЛЬНЫЙ ФОРМАТ - весь промпт единым блоком как в Ollama версии
     full_prompt = f"""{SYSTEM_PROMPT}
 IMPORTANT: Today's date is {current_date}.
 Student level: {level}
