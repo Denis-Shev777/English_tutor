@@ -815,8 +815,18 @@ Respond ONLY in valid JSON format with the following keys:
 - "reply": a friendly natural response to the student (required)
 - "question": a follow-up question if appropriate (optional, omit if none)
 - "quick_replies": array of 3 short English replies (max 6 words each) for A1/A2 levels (optional)
-- "correction": corrected version of student's sentence if it had errors (optional)
+- "correction": corrected version of student's sentence if it had errors (MANDATORY if there are ANY mistakes!)
 - "tip": very short grammar/vocab tip (optional)
+
+CRITICAL RULES FOR ERROR CORRECTION:
+- You MUST check EVERY student message for grammar, vocabulary, and spelling errors
+- If you find ANY error (even small), you MUST provide "correction" field with the fixed sentence
+- Common errors to catch: subject-verb agreement (I has → I have), articles (a/an/the), word order, tense errors
+- Examples of what to correct:
+  * "I has plan" → correction: "I have a plan"
+  * "She go to school" → correction: "She goes to school"
+  * "I am live in Moscow" → correction: "I live in Moscow"
+- If sentence is 100% correct, omit "correction" field
 
 RULES:
 - ALWAYS wrap ALL string values in double quotes (").
@@ -830,7 +840,7 @@ For B1-B2 levels: Can give more detailed explanation
 ALWAYS include in "reply":
 ---
 Animal - животное
-Example: I have a pet. It's an animal. - У меня есть питомец. Это животное.
+Пример: I have a pet. It's an animal. - У меня есть питомец. Это животное.
 ---
 
 - Keep "reply" conversational and human-like.
@@ -898,7 +908,7 @@ def call_ollama_raw(prompt: str) -> str:
             ],
             temperature=0.5,
             top_p=0.9,
-            max_tokens=250,
+            max_tokens=350,
         )
 
         bot_response = response.choices[0].message.content.strip()
@@ -941,13 +951,17 @@ def extract_word_from_query(user_text: str):
 
     # Паттерны для русских запросов
     ru_patterns = [
-        r"^\s*что\s+значит\s+(?:-\s*)?(\w+)\s*\??\s*$",         # что значит animal / что значит - animal
-        r"^\s*что\s+такое\s+(\w+)\s*\??\s*$",                   # что такое animal
-        r"^\s*значение\s+(\w+)\s*\??\s*$",                      # значение animal
+        r"^\s*(?:а\s+)?что\s+значит\s+(?:-\s*)?(\w+)\s*\??\s*$",         # что значит animal / а что значит animal
+        r"^\s*(?:а\s+)?что\s+такое\s+(\w+)\s*\??\s*$",                   # что такое animal / а что такое dog
+        r"^\s*значение\s+(\w+)\s*\??\s*$",                               # значение animal
         r"^\s*переведи\s+(?:слово\s+)?(?:пожалуйста\s+)?(\w+)\s*\??\s*$",  # переведи animal / переведи пожалуйста animal
-        r"^\s*перевод\s+(\w+)\s*\??\s*$",                       # перевод animal
-        r"^\s*(\w+)\s*-\s*это\s+что\s*\??\s*$",                 # animal - это что?
-        r"^\s*(\w+)\s*-\s*что\s+это\s*\??\s*$",                 # animal - что это?
+        r"^\s*перевод\s+(\w+)\s*\??\s*$",                                # перевод animal
+        r"^\s*(?:а\s+)?как\s+переводится\s+(\w+)\s*\??\s*$",             # как переводится animal / а как переводится dog
+        r"^\s*(?:а\s+)?как\s+будет\s+(\w+)\s*\??\s*$",                   # как будет animal / а как будет dog
+        r"^\s*(?:а\s+)?как\s+(?:по-английски|по\s+английски)\s+(\w+)\s*\??\s*$",  # а как по-английски собака
+        r"^\s*(\w+)\s*-\s*это\s+что\s*\??\s*$",                          # animal - это что?
+        r"^\s*(\w+)\s*-\s*что\s+это\s*\??\s*$",                          # animal - что это?
+        r"^\s*что\s+означает\s+(\w+)\s*\??\s*$",                         # что означает animal
     ]
 
     for pattern in en_patterns + ru_patterns:
@@ -973,12 +987,12 @@ Explain the word "{word_to_explain}" in VERY SIMPLE English.
 Rules:
 1. First line: ONE SHORT sentence (5-8 words) explaining the meaning
 2. Second line: Word - Russian translation (ONLY ONE main translation)
-3. Third line: Example with translation
+3. Third line: Пример with translation
 
 Example format:
 Not the same.
 Different - другой, различный
-Example: This pen is different. - Эта ручка другая.
+Пример: This pen is different. - Эта ручка другая.
 
 Now explain "{word_to_explain}"."""
         else:
@@ -988,12 +1002,12 @@ Explain the word "{word_to_explain}".
 Rules:
 1. First line: Clear short explanation
 2. Second line: Word - Russian translation
-3. Third line: Example with translation
+3. Third line: Пример with translation
 
 Example format:
 Not the same as something else.
 Different - другой, различный, отличающийся
-Example: Everyone is different in their own way. - Каждый по-своему уникален.
+Пример: Everyone is different in their own way. - Каждый по-своему уникален.
 
 Now explain "{word_to_explain}"."""
 
@@ -1081,6 +1095,7 @@ Russian translation:"""
 IMPORTANT: Today's date is {current_date}.
 Student level: {level}
 Teaching style: {style}
+CRITICAL: Check the student's message for ANY grammar, vocabulary, or spelling errors. If you find errors, you MUST provide "correction" field!
 Conversation history:{conversation}
 Student: {user_text}
 Teacher:"""
