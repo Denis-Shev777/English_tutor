@@ -267,9 +267,15 @@ async def handle_voice_message(message: Message):
 
     # Проверяем онбординг
     if not is_onboarding_completed(user_id):
+        # Кнопка для начала онбординга
+        start_kb = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="🚀 Старт", callback_data="start_onboarding")]
+            ]
+        )
         await message.answer(
-            "Please complete the onboarding first! Use /start to begin.",
-            reply_markup=get_main_menu(user_id, username),
+            "👋 Привет! Сначала нужно пройти онбординг, чтобы я мог подобрать уроки под твой уровень.",
+            reply_markup=start_kb,
         )
         return
 
@@ -371,9 +377,15 @@ async def handle_text_message(message: Message):
 
     # Проверяем онбординг
     if not is_onboarding_completed(user_id):
+        # Кнопка для начала онбординга
+        start_kb = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="🚀 Старт", callback_data="start_onboarding")]
+            ]
+        )
         await message.answer(
-            "Please complete the onboarding first! Use /start to begin.",
-            reply_markup=get_main_menu(user_id, username),
+            "👋 Привет! Сначала нужно пройти онбординг, чтобы я мог подобрать уроки под твой уровень.",
+            reply_markup=start_kb,
         )
         return
 
