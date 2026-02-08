@@ -9,7 +9,7 @@ load_dotenv()
 from logger import get_logger
 from handlers import commands, conversation, payments, onboarding
 from database import init_db
-from payment_checker import start_payment_checker
+# from payment_checker import start_payment_checker  # BscScan API требует платный план
 
 logger = get_logger('main')
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -34,8 +34,8 @@ async def main():
     logger.info("🤖 Бот запущен и готов к работе!")
     await bot.delete_webhook(drop_pending_updates=True)
 
-    # Запускаем фоновую проверку USDT платежей
-    asyncio.create_task(start_payment_checker(bot))
+    # Фоновая проверка USDT отключена (BscScan API требует платный план)
+    # asyncio.create_task(start_payment_checker(bot))
 
     try:
         await dp.start_polling(bot)
