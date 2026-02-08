@@ -1,6 +1,6 @@
 from aiogram import Router, F
 from aiogram.filters import Command
-from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 import sys
 import os
 from datetime import datetime
@@ -141,13 +141,14 @@ async def cmd_start(message: Message):
         await message.answer(
             f"Привет, {username}! 👋\n\n"
             "Я твой помощник для практики английского! 🎓\n\n"
-            "**Что я умею:**\n"
+            "<b>Что я умею:</b>\n"
             "• Практика разговорной речи (голос и текст)\n"
             "• Мягкие исправления ошибок\n"
             "• Помощь с грамматикой и словами\n"
             "• Адаптация под твой уровень\n\n"
             "Давай начнем с определения твоего уровня!",
             reply_markup=keyboard,
+            parse_mode="HTML",
         )
         return
 
@@ -155,7 +156,7 @@ async def cmd_start(message: Message):
     await message.answer(
         f"Привет, {username}!\n\n"
         "Я твой помощник для практики английского! 🎓\n\n"
-        "**Как использовать:**\n"
+        "<b>Как использовать:</b>\n"
         "• Отправляй голосовые или текстовые сообщения на английском\n"
         "• Я помогу тебе практиковать разговорную речь\n"
         "• Мягко исправлю твои ошибки\n"
@@ -177,7 +178,13 @@ async def cmd_status(message: Message):
     user = get_user(user_id)
 
     if not user:
-        await message.answer("❌ Пользователь не найден. Используйте /start.")
+        start_kb = InlineKeyboardMarkup(
+            inline_keyboard=[[InlineKeyboardButton(text="🚀 Старт", callback_data="go_start")]]
+        )
+        await message.answer(
+            "❌ Пользователь не найден. Нажмите кнопку ниже:",
+            reply_markup=start_kb,
+        )
         return
 
     # Получаем streak (8-й элемент)
@@ -187,12 +194,13 @@ async def cmd_status(message: Message):
     if username and username in WHITELIST_USERNAMES:
         referral_code = user[8] if len(user) > 8 else "Не сгенерирован"
         await message.answer(
-            "⭐ **VIP Статус**\n\n"
+            "⭐ <b>VIP Статус</b>\n\n"
             "У вас неограниченный доступ!\n"
             "Использовано сообщений: ∞\n"
             "Подписка: Пожизненный Premium 💎\n"
-            f"Реферальный код: `{referral_code}`",
+            f"Реферальный код: <code>{referral_code}</code>",
             reply_markup=get_main_menu(user_id, username),
+            parse_mode="HTML",
         )
         return
 
@@ -210,14 +218,15 @@ async def cmd_status(message: Message):
 
         referral_code = user[8] if len(user) > 8 else "Не сгенерирован"
         await message.answer(
-            f"✅ **Premium активен**\n\n"
+            f"✅ <b>Premium активен</b>\n\n"
             f"Статус: Premium 💎\n"
             f"Streak: {streak} {'день' if streak == 1 else 'дня' if 2 <= streak <= 4 else 'дней'} подряд 🎯\n"
             f"Истекает: {expires.strftime('%Y-%m-%d %H:%M')}\n"
             f"{time_info}\n"
-            f"Реферальный код: `{referral_code}`\n\n"
+            f"Реферальный код: <code>{referral_code}</code>\n\n"
             f"Продолжайте в том же духе!",
             reply_markup=get_main_menu(user_id, username),
+            parse_mode="HTML",
         )
     else:
         BASE_LIMIT = 25
@@ -234,7 +243,7 @@ async def cmd_status(message: Message):
                 f"🎁 Бонус сообщений: +{bonus_messages}\n" if bonus_messages > 0 else ""
             )
             await message.answer(
-                f"📊 **Бесплатный уровень**\n\n"
+                f"📊 <b>Бесплатный уровень</b>\n\n"
                 f"{bonus_line}"
                 f"Использовано сообщений: {messages_used}/{total_limit}\n"
                 f"Осталось: {messages_left}\n"
@@ -247,7 +256,7 @@ async def cmd_status(message: Message):
             )
         else:
             await message.answer(
-                f"🚫 **Сообщения закончились**\n\n"
+                f"🚫 <b>Сообщения закончились</b>\n\n"
                 f"Вы использовали все доступные сообщения: {messages_used}/{total_limit}.\n"
                 f"Streak: {streak} {'день' if streak == 1 else 'дня' if 2 <= streak <= 4 else 'дней'} подряд 🎯\n\n"
                 f"Получите Premium:\n"
@@ -265,13 +274,13 @@ async def cmd_status(message: Message):
 async def cmd_buy(message: Message):
     """Команда /buy или кнопка"""
     await message.answer(
-        "💎 **Получи Premium доступ!**\n\n"
-        "**Что входит:**\n"
+        "💎 <b>Получи Premium доступ!</b>\n\n"
+        "<b>Что входит:</b>\n"
         "✅ Безлимитные сообщения\n"
         "✅ Голосовые + текстовые исправления\n"
         "✅ Разговорная практика\n"
         "✅ Доступ 24/7\n\n"
-        "**Цены:**\n"
+        "<b>Цены:</b>\n"
         "⭐ <b>100 Stars</b> - 1 неделя (~179 руб)\n"
         "💵 <b>1.5 USDT (BEP-20)</b> - 1 неделя\n\n"
         "Выбери способ оплаты:",
@@ -291,11 +300,12 @@ async def cmd_reset(message: Message):
     reset_conversation(user_id)
 
     await message.answer(
-        "🧠 **Память очищена!**\n\n"
+        "🧠 <b>Память очищена!</b>\n\n"
         "Я забыл нашу переписку и не помню что мы обсуждали.\n"
         "Давай начнём разговор заново! 🎤\n\n"
         "💡 Сообщения в чате остаются видимыми, но я их больше не помню.",
         reply_markup=get_main_menu(user_id, username),
+        parse_mode="HTML",
     )
 
 
@@ -331,8 +341,10 @@ async def cmd_menu(message: Message):
     user_id = message.from_user.id
     username = message.from_user.username
     await message.answer(
-        "🏠 **Главное меню**\n\n" "Используй кнопки ниже для навигации ⬇️",
+        "🏠 <b>Главное меню</b>\n\n"
+        "Используй кнопки ниже для навигации ⬇️",
         reply_markup=get_main_menu(user_id, username),
+        parse_mode="HTML",
     )
 
 
@@ -378,13 +390,20 @@ async def cmd_referral(message: Message):
     user = get_user(user_id)
 
     if not user:
-        await message.answer("❌ Пользователь не найден. Используйте /start.")
+        start_kb = InlineKeyboardMarkup(
+            inline_keyboard=[[InlineKeyboardButton(text="🚀 Старт", callback_data="go_start")]]
+        )
+        await message.answer(
+            "❌ Пользователь не найден. Нажмите кнопку ниже:",
+            reply_markup=start_kb,
+        )
         return
 
     code = user[8] if len(user) > 8 else "Не сгенерирован"
     await message.answer(
-        f"🔗 Ваш реферальный код: `{code}`\n\n"
-        f"Поделитесь им с другом — и получите бонус!"
+        f"🔗 Ваш реферальный код: <code>{code}</code>\n\n"
+        f"Поделитесь им с другом — и получите бонус!",
+        parse_mode="HTML",
     )
 
 
@@ -397,7 +416,13 @@ async def cmd_level(message: Message):
     user = get_user(user_id)
 
     if not user:
-        await message.answer("❌ Пользователь не найден. Используйте /start.")
+        start_kb = InlineKeyboardMarkup(
+            inline_keyboard=[[InlineKeyboardButton(text="🚀 Старт", callback_data="go_start")]]
+        )
+        await message.answer(
+            "❌ Пользователь не найден. Нажмите кнопку ниже:",
+            reply_markup=start_kb,
+        )
         return
 
     # Импортируем функцию здесь, чтобы избежать циклических импортов
@@ -415,3 +440,49 @@ async def cmd_level(message: Message):
         reply_markup=get_level_selection_keyboard(),
         parse_mode="HTML"
     )
+
+
+@router.callback_query(F.data == "go_start")
+async def cb_go_start(callback: CallbackQuery):
+    """Обработчик кнопки Старт из сообщения 'Пользователь не найден'"""
+    await callback.answer()
+    user_id = callback.from_user.id
+    username = callback.from_user.username or callback.from_user.first_name
+
+    user = get_user(user_id)
+    if not user:
+        create_user(user_id, username)
+
+    if not is_onboarding_completed(user_id):
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="🚀 Начать!", callback_data="start_onboarding")]
+            ]
+        )
+        await callback.message.answer(
+            f"Привет, {username}! 👋\n\n"
+            "Я твой помощник для практики английского! 🎓\n\n"
+            "<b>Что я умею:</b>\n"
+            "• Практика разговорной речи (голос и текст)\n"
+            "• Мягкие исправления ошибок\n"
+            "• Помощь с грамматикой и словами\n"
+            "• Адаптация под твой уровень\n\n"
+            "Давай начнем с определения твоего уровня!",
+            reply_markup=keyboard,
+            parse_mode="HTML",
+        )
+    else:
+        await callback.message.answer(
+            f"Привет, {username}!\n\n"
+            "Я твой помощник для практики английского! 🎓\n\n"
+            "<b>Как использовать:</b>\n"
+            "• Отправляй голосовые или текстовые сообщения на английском\n"
+            "• Я помогу тебе практиковать разговорную речь\n"
+            "• Мягко исправлю твои ошибки\n"
+            "• Спрашивай о словах, грамматике или просто общайся!\n\n"
+            "<b>Бесплатно:</b> 25 сообщений\n"
+            "<b>Premium:</b> Безлимитный доступ всего за <b>100 Stars</b>/неделю\n\n"
+            "Используй кнопки ниже для быстрого доступа! ⬇️",
+            reply_markup=get_main_menu(user_id, username),
+            parse_mode="HTML",
+        )

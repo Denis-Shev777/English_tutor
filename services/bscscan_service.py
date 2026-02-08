@@ -36,10 +36,11 @@ def check_usdt_transactions(wallet_address: str, start_block: int = 0):
         return []
     
     try:
-        # API endpoint для получения BEP-20 транзакций
-        url = "https://api.bscscan.com/api"
-        
+        # Etherscan API V2 endpoint (unified for all chains)
+        url = "https://api.etherscan.io/v2/api"
+
         params = {
+            "chainid": 56,  # BSC Mainnet
             "module": "account",
             "action": "tokentx",
             "contractaddress": USDT_CONTRACT,
