@@ -28,7 +28,19 @@ from database import (
     update_user_streak,
     user_get,
     has_active_subscription,
+    get_streak_reward_level,
+    set_streak_reward_level,
+    add_messages,
+    add_premium_days,
 )
+
+# Streak-награды: {дней: (описание, бонус сообщений, бонус дней премиум)}
+STREAK_MILESTONES = {
+    3: ("🎁 +5 бесплатных сообщений!", 5, 0),
+    7: ("🎁 +10 бесплатных сообщений!", 10, 0),
+    14: ("🎁 +20 бесплатных сообщений!", 20, 0),
+    30: ("⭐ +1 день Premium подписки!", 0, 1),
+}
 
 from services.ollama_service import get_ollama_response
 from services.whisper_service import transcribe_audio
@@ -202,7 +214,7 @@ async def process_user_message(message: Message, user_text: str):
                     reply_markup=main_kb,
                 )
 
-    # --- Streak уведомление ---
+    # --- Streak уведомление + награды ---
     if "last_active" in locals() and last_active != today_str:
         days = new_streak
         if days % 10 == 1 and days % 100 != 11:
@@ -211,9 +223,34 @@ async def process_user_message(message: Message, user_text: str):
             word = "дня"
         else:
             word = "дней"
+
+        # Проверяем streak-награды
+        last_reward = get_streak_reward_level(user_id)
+        reward_text = ""
+        for milestone, (desc, bonus_msgs, bonus_days) in sorted(STREAK_MILESTONES.items()):
+            if days >= milestone and last_reward < milestone:
+                if bonus_msgs > 0:
+                    add_messages(user_id, bonus_msgs)
+                if bonus_days > 0:
+                    add_premium_days(user_id, bonus_days)
+                set_streak_reward_level(user_id, milestone)
+                reward_text = f"\n\n🏅 Награда за {milestone} дней: {desc}"
+                break  # одна награда за раз
+
+        # Прогресс до следующей награды
+        next_milestone = None
+        for m in sorted(STREAK_MILESTONES.keys()):
+            if days < m:
+                next_milestone = m
+                break
+
+        progress = ""
+        if next_milestone:
+            progress = f"\n📈 До следующей награды: {next_milestone - days} дн."
+
         await message.answer(
-            f"🎯 Твой streak: {days} {word} подряд!\n"
-            f"Продолжай практиковаться каждый день!"
+            f"🎯 Твой streak: {days} {word} подряд!"
+            f"{reward_text}{progress}"
         )
 
 
@@ -360,6 +397,8 @@ async def handle_text_message(message: Message):
         "🧠 Очистить память",
         "❓ Помощь",
         "📈 Статистика",
+        "🎲 Тема для разговора",
+        "🎯 Проверить уровень",
     ]:
         print("Это команда или кнопка - игнорируем")
         return
