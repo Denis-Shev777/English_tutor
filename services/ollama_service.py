@@ -3,7 +3,7 @@ import re
 import json
 import os
 from datetime import datetime
-from difflib import get_close_matches
+from difflib import get_close_matches, SequenceMatcher
 from logger import get_logger
 from groq import Groq
 
@@ -979,6 +979,99 @@ def extract_word_from_query(user_text: str):
     return None
 
 
+def _normalize_en_token(value: str) -> str:
+    return re.sub(r"[^a-z]", "", value.lower())
+
+
+def _token_skeleton(value: str) -> str:
+    token = _normalize_en_token(value)
+    if not token:
+        return ""
+    head = token[0]
+    tail = re.sub(r"[aeiouy]", "", token[1:])
+    return head + tail
+
+
+def _extract_noisy_target_phrase(user_text: str) -> str:
+    text = re.sub(r"[^a-zA-Zа-яА-ЯёЁ0-9\s']", " ", user_text.lower())
+    text = re.sub(r"\s+", " ", text).strip()
+
+    tail_patterns = [
+        r"(?:what\s+does)\s+(.+?)\s+mean",
+        r"(?:what\s+is\s+the\s+meaning\s+of)\s+(.+)$",
+        r"(?:what\s+is\s+mean(?:\s+by|\s+in)?)\s+(.+)$",
+        r"(?:meaning\s+of)\s+(.+)$",
+        r"(?:translation\s+of(?:\s+the)?(?:\s+word)?)\s+(.+)$",
+        r"(?:translate(?:\s+please)?(?:\s+the)?(?:\s+word)?)\s+(.+)$",
+        r"(?:что\s+значит|что\s+означает|перевод|переведи(?:\s+слово)?|как\s+переводится)\s+(.+)$",
+    ]
+
+    for pattern in tail_patterns:
+        m = re.search(pattern, text)
+        if not m:
+            continue
+        tail = m.group(1).strip()
+        tail = tail.split("?")[0].strip()
+        tail = re.sub(r"\b(and|it|is|the|a|an|word|please|me|to|know|now|tell|about|just|i|want|no)\b", " ", tail)
+        tail = re.sub(r"\s+", " ", tail).strip()
+        if tail:
+            return tail
+    return ""
+
+
+def infer_word_from_recent_context(user_text: str, history: list) -> str | None:
+    """Пытается восстановить слово из недавнего контекста, если STT исказил его."""
+    if not history:
+        return None
+
+    noisy_phrase = _extract_noisy_target_phrase(user_text)
+    if not noisy_phrase:
+        return None
+
+    noisy_tokens = [
+        _normalize_en_token(t)
+        for t in noisy_phrase.split()
+        if _normalize_en_token(t) and len(_normalize_en_token(t)) >= 3
+    ]
+    if not noisy_tokens:
+        return None
+
+    # Берем недавние слова именно из сообщений ассистента.
+    assistant_text = " ".join(
+        content for role, content in history[-6:] if role == "assistant" and isinstance(content, str)
+    )
+    candidates = re.findall(r"[a-zA-Z][a-zA-Z'-]{2,30}", assistant_text.lower())
+    stop = {
+        "what", "your", "have", "with", "this", "that", "from", "into", "about",
+        "would", "could", "should", "there", "their", "them", "they", "you",
+        "mean", "meaning", "translation", "word", "please", "russian", "english",
+    }
+    candidates = [c for c in candidates if c not in stop]
+    if not candidates:
+        return None
+
+    best_word = None
+    best_score = 0.0
+
+    for noisy in noisy_tokens:
+        noisy_sk = _token_skeleton(noisy)
+        for cand in candidates:
+            cand_n = _normalize_en_token(cand)
+            if len(cand_n) < 3:
+                continue
+            score_raw = SequenceMatcher(None, noisy, cand_n).ratio()
+            score_skel = SequenceMatcher(None, noisy_sk, _token_skeleton(cand_n)).ratio()
+            score = max(score_raw, score_skel)
+            if score > best_score:
+                best_score = score
+                best_word = cand_n
+
+    # Порог эмпирический: отсекает мусор, но ловит "come it is" -> "comedies"
+    if best_word and best_score >= 0.60:
+        return best_word
+    return None
+
+
 def is_word_translation_request(user_text: str) -> bool:
     """Определяет, что пользователь просит именно перевод слова."""
     text = user_text.strip().lower()
@@ -1003,6 +1096,8 @@ def get_ollama_response(user_text: str, history: list = None, level: str = "A1")
 
     # --- WORD MEANING / WORD TRANSLATION MODE (приоритет!) ---
     word_to_explain = extract_word_from_query(user_text)
+    if not word_to_explain and is_word_translation_request(user_text):
+        word_to_explain = infer_word_from_recent_context(user_text, history or [])
     if word_to_explain:
         # Если пользователь явно просит перевод слова — даём перевод без лишней болтовни.
         if is_word_translation_request(user_text):
