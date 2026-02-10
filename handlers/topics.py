@@ -5,7 +5,7 @@ import random
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 
-from database import get_user, user_get, is_onboarding_completed
+from database import get_user, user_get, is_onboarding_completed, reset_conversation
 from handlers.keyboards import get_main_menu
 
 router = Router()
@@ -293,6 +293,11 @@ async def topic_phrase_click(callback: CallbackQuery):
     """Пользователь выбрал стартовую фразу — запускаем разговор."""
     await callback.answer()
     phrase = callback.data[6:]  # remove "topic:"
+    user_id = callback.from_user.id
+
+    # Новая тема должна начинаться с чистого контекста, иначе модель "залипает"
+    # на предыдущем обсуждаемом слове/теме.
+    reset_conversation(user_id)
 
     # Убираем кнопки у предыдущего сообщения
     try:

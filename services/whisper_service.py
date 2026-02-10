@@ -1,14 +1,46 @@
 from faster_whisper import WhisperModel
 import os
+import re
 from pydub import AudioSegment
 import tempfile
 
 print("🎧 Загрузка Faster-Whisper модели...")
 
-# Используем модель "base" с CPU - быстрее и легче чем openai-whisper
-model = WhisperModel("base", device="cpu", compute_type="int8")
+# Для English распознавания "small.en" обычно точнее, чем "base".
+# Можно переопределить через .env: WHISPER_MODEL=base/small.en/medium.en
+WHISPER_MODEL = os.getenv("WHISPER_MODEL", "small.en")
+WHISPER_DEVICE = os.getenv("WHISPER_DEVICE", "cpu")
+WHISPER_COMPUTE_TYPE = os.getenv("WHISPER_COMPUTE_TYPE", "int8")
+
+model = WhisperModel(WHISPER_MODEL, device=WHISPER_DEVICE, compute_type=WHISPER_COMPUTE_TYPE)
 
 print("✅ Faster-Whisper готов!")
+
+
+# Подсказка словаря для разговоров в боте (улучшает распознавание редких слов).
+BIAS_PROMPT = (
+    "English tutoring dialogue. Common words and phrases: latte, cappuccino, espresso, "
+    "americano, menu, order, coffee, tea, bill, to go, stay here, recommendation."
+)
+
+
+def _postprocess_stt_text(text: str) -> str:
+    """Легкая нормализация типичных ошибок STT для coffee-сценариев."""
+    if not text:
+        return text
+
+    cleaned = text.strip()
+    lower = cleaned.lower()
+
+    # Частый кейс: "lot of" вместо "latte" в контексте кофе/заказа.
+    if ("coffee" in lower or "order" in lower or "cafe" in lower) and "lot of" in lower:
+        cleaned = re.sub(r"\blot of\b", "latte", cleaned, flags=re.IGNORECASE)
+
+    # Частый кейс: "coffee later" вместо "coffee latte".
+    if ("coffee" in lower or "order" in lower or "cafe" in lower) and "later" in lower:
+        cleaned = re.sub(r"\blater\b", "latte", cleaned, flags=re.IGNORECASE)
+
+    return cleaned
 
 def transcribe_audio(audio_file_path):
     """
@@ -50,26 +82,49 @@ def transcribe_audio(audio_file_path):
         
         print(f"🎧 Распознаю речь через Faster-Whisper...")
 
-        # Faster-Whisper API: transcribe возвращает (segments, info)
-        segments, info = model.transcribe(
-            wav_path,
-            language="en",
-            beam_size=5,
-            vad_filter=True  # Фильтр голосовой активности
+        def _run_transcribe(beam_size: int, use_vad: bool, with_prompt: bool):
+            kwargs = {
+                "language": "en",
+                "beam_size": beam_size,
+                "vad_filter": use_vad,
+                "temperature": 0.0,
+                "condition_on_previous_text": False,
+            }
+            if with_prompt:
+                kwargs["initial_prompt"] = BIAS_PROMPT
+            segs, inf = model.transcribe(wav_path, **kwargs)
+            parts = []
+            count = 0
+            for seg in segs:
+                s = seg.text.strip()
+                if s:
+                    parts.append(s)
+                    count += 1
+                    if count <= 3:
+                        print(f"  Segment {count}: '{s}'")
+            return " ".join(parts).strip(), count, inf
+
+        # 1) Основной проход.
+        text, segment_count, info = _run_transcribe(beam_size=6, use_vad=True, with_prompt=True)
+
+        # 2) Fallback: для коротких/сомнительных результатов делаем второй проход.
+        needs_retry = (
+            not text
+            or len(text.split()) <= 2
+            or " lot of " in f" {text.lower()} "
+            or text.lower().endswith(" later")
         )
-
-        # Собираем текст из сегментов
-        text_parts = []
-        segment_count = 0
-        for segment in segments:
-            text_parts.append(segment.text.strip())
-            segment_count += 1
-            if segment_count <= 3:  # Показываем первые 3 сегмента
-                print(f"  Segment {segment_count}: '{segment.text.strip()}'")
-
-        text = " ".join(text_parts).strip()
+        if needs_retry:
+            print("⚠️ Результат сомнительный, запускаю повторное распознавание...")
+            retry_text, retry_count, _ = _run_transcribe(
+                beam_size=10, use_vad=False, with_prompt=True
+            )
+            if retry_text and (len(retry_text) >= len(text)):
+                text = retry_text
+                segment_count = retry_count
 
         if text:
+            text = _postprocess_stt_text(text)
             print(f"✅ Распознано: '{text}'")
             print(f"📝 Всего сегментов: {segment_count}")
         else:

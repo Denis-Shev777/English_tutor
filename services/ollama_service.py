@@ -972,13 +972,47 @@ def extract_word_from_query(user_text: str):
     return None
 
 
+def is_word_translation_request(user_text: str) -> bool:
+    """Определяет, что пользователь просит именно перевод слова."""
+    text = user_text.strip().lower()
+    patterns = [
+        r"\btranslation\b",
+        r"\btranslate\b",
+        r"\bперевод\b",
+        r"\bпереведи\b",
+        r"\bперевести\b",
+        r"\bкак\s+переводится\b",
+    ]
+    return any(re.search(p, text) for p in patterns)
+
+
 def get_ollama_response(user_text: str, history: list = None, level: str = "A1"):
     """Получить структурированный ответ от Ollama в виде dict"""
     lower = user_text.strip().lower()
 
-    # --- WORD MEANING MODE (приоритет!) ---
+    # --- WORD MEANING / WORD TRANSLATION MODE (приоритет!) ---
     word_to_explain = extract_word_from_query(user_text)
     if word_to_explain:
+        # Если пользователь явно просит перевод слова — даём перевод без лишней болтовни.
+        if is_word_translation_request(user_text):
+            translate_word_prompt = f"""You are a bilingual EN-RU dictionary.
+Translate the English word "{word_to_explain}" into Russian.
+
+Rules:
+1) Return EXACTLY 2 lines.
+2) Line 1 format: {word_to_explain} - <one most common Russian translation>
+3) Line 2 format: Пример: <short English example> - <Russian translation>
+4) No JSON, no extra notes, no questions.
+"""
+            raw_translation = call_ollama_raw(translate_word_prompt).strip()
+            return {
+                "reply": raw_translation,
+                "question": None,
+                "quick_replies": [],
+                "correction": None,
+                "tip": None,
+            }
+
         # Специальный промпт для объяснения значения слова
         if level in ["A1", "A2"]:
             explain_prompt = f"""You are teaching English to A1-A2 beginner students.
@@ -1136,10 +1170,28 @@ Teacher:"""
             f"Failed to parse LLM JSON response: {e}. Raw: {raw_response[:200]}..."
         )
 
-        # Fallback: вернуть хотя бы текст без структуры
+        # Fallback: никогда не отправляем пользователю "сырой" JSON.
+        # Если модель вернула объект в строке, вытаскиваем хотя бы reply/question.
+        extracted_reply = ""
+        extracted_question = None
+        reply_match = re.search(r'"reply"\s*:\s*"([\s\S]*?)"\s*,\s*"question"', raw_response)
+        if reply_match:
+            extracted_reply = reply_match.group(1).strip()
+        else:
+            reply_match = re.search(r'"reply"\s*:\s*"([\s\S]*?)"\s*[,}]', raw_response)
+            if reply_match:
+                extracted_reply = reply_match.group(1).strip()
+
+        question_match = re.search(r'"question"\s*:\s*"([\s\S]*?)"\s*[,}]', raw_response)
+        if question_match:
+            extracted_question = question_match.group(1).strip()
+
+        if not extracted_reply:
+            extracted_reply = "Sorry, I had a formatting issue. Please send your message once again."
+
         return {
-            "reply": raw_response,
-            "question": None,
+            "reply": extracted_reply,
+            "question": extracted_question,
             "quick_replies": [],
             "correction": None,
             "tip": None,
