@@ -35,6 +35,17 @@ from handlers.keyboards import get_main_menu, get_buy_menu
 # Получаем WHITELIST из .env
 WHITELIST_USERNAMES = os.getenv("WHITELIST_USERNAMES", "").split(",")
 
+# Персонажи-бейджи для каждого уровня
+LEVEL_BADGES = {
+    "A1": {"emoji": "🐣", "name": "Цыплёнок", "title": "Beginner Chick", "desc": "Делает первые шаги в английском"},
+    "A2": {"emoji": "🦊", "name": "Лисёнок", "title": "Curious Fox", "desc": "Уверенно осваивает основы"},
+    "B1": {"emoji": "🦁", "name": "Лев", "title": "Confident Lion", "desc": "Свободно говорит на повседневные темы"},
+    "B2": {"emoji": "🦅", "name": "Орёл", "title": "Soaring Eagle", "desc": "Покоряет вершины английского"},
+}
+
+# Streak-награды
+STREAK_MILESTONES = {3: 5, 7: 10, 14: 20, 30: 0}  # дней: бонус сообщений (30=premium)
+
 router = Router()
 
 
@@ -66,6 +77,12 @@ async def cmd_start(message: Message):
     # --- Referral activation with bonuses ---
     parts = (message.text or "").split(maxsplit=1)
     payload = parts[1].strip() if len(parts) > 1 else None
+
+    # --- Viral quiz deep link ---
+    if payload == "quiz30":
+        from handlers.quiz import start_quiz
+        await start_quiz(message)
+        return
 
     if payload and payload.startswith("REF_"):
         referral_code = payload[4:].strip()
@@ -187,17 +204,29 @@ async def cmd_status(message: Message):
         )
         return
 
-    # Получаем streak (8-й элемент)
+    # Получаем streak и уровень
     streak = user[7] if len(user) > 7 else 0
+    level = user_get(user, "level", "A1") or "A1"
+    badge = LEVEL_BADGES.get(level, LEVEL_BADGES["A1"])
+    badge_line = f"{badge['emoji']} <b>{level} — {badge['name']}</b> ({badge['title']})"
+
+    # Streak прогресс
+    next_milestone = None
+    for m in sorted(STREAK_MILESTONES.keys()):
+        if streak < m:
+            next_milestone = m
+            break
+    streak_progress = f" (до награды: {next_milestone - streak} дн.)" if next_milestone else " 🏆 Все награды получены!"
 
     # Белый список по username
     if username and username in WHITELIST_USERNAMES:
         referral_code = user[8] if len(user) > 8 else "Не сгенерирован"
         await message.answer(
-            "⭐ <b>VIP Статус</b>\n\n"
-            "У вас неограниченный доступ!\n"
-            "Использовано сообщений: ∞\n"
-            "Подписка: Пожизненный Premium 💎\n"
+            f"⭐ <b>VIP Статус</b>\n\n"
+            f"Персонаж: {badge_line}\n"
+            f"Streak: {streak} дн. подряд 🎯{streak_progress}\n\n"
+            f"У вас неограниченный доступ!\n"
+            f"Подписка: Пожизненный Premium 💎\n"
             f"Реферальный код: <code>{referral_code}</code>",
             reply_markup=get_main_menu(user_id, username),
             parse_mode="HTML",
@@ -219,8 +248,9 @@ async def cmd_status(message: Message):
         referral_code = user[8] if len(user) > 8 else "Не сгенерирован"
         await message.answer(
             f"✅ <b>Premium активен</b>\n\n"
+            f"Персонаж: {badge_line}\n"
+            f"Streak: {streak} дн. подряд 🎯{streak_progress}\n\n"
             f"Статус: Premium 💎\n"
-            f"Streak: {streak} {'день' if streak == 1 else 'дня' if 2 <= streak <= 4 else 'дней'} подряд 🎯\n"
             f"Истекает: {expires.strftime('%Y-%m-%d %H:%M')}\n"
             f"{time_info}\n"
             f"Реферальный код: <code>{referral_code}</code>\n\n"
@@ -244,10 +274,11 @@ async def cmd_status(message: Message):
             )
             await message.answer(
                 f"📊 <b>Бесплатный уровень</b>\n\n"
+                f"Персонаж: {badge_line}\n"
+                f"Streak: {streak} дн. подряд 🎯{streak_progress}\n\n"
                 f"{bonus_line}"
                 f"Использовано сообщений: {messages_used}/{total_limit}\n"
-                f"Осталось: {messages_left}\n"
-                f"Streak: {streak} {'день' if streak == 1 else 'дня' if 2 <= streak <= 4 else 'дней'} подряд 🎯\n\n"
+                f"Осталось: {messages_left}\n\n"
                 f"Хотите неограниченный доступ?\n"
                 f"Получите Premium всего за <b>100 Stars</b>/неделя!\n\n"
                 f"Нажмите кнопку ниже, чтобы обновить! ⬇️",
@@ -257,8 +288,9 @@ async def cmd_status(message: Message):
         else:
             await message.answer(
                 f"🚫 <b>Сообщения закончились</b>\n\n"
-                f"Вы использовали все доступные сообщения: {messages_used}/{total_limit}.\n"
-                f"Streak: {streak} {'день' if streak == 1 else 'дня' if 2 <= streak <= 4 else 'дней'} подряд 🎯\n\n"
+                f"Персонаж: {badge_line}\n"
+                f"Streak: {streak} дн. подряд 🎯{streak_progress}\n\n"
+                f"Вы использовали все сообщения: {messages_used}/{total_limit}.\n\n"
                 f"Получите Premium:\n"
                 f"⭐ <b>100 Stars</b> — 1 неделя\n"
                 f"💵 <b>1.5 USDT (BEP-20)</b> — 1 неделя\n\n"
@@ -317,17 +349,23 @@ async def cmd_help(message: Message):
     username = message.from_user.username
 
     text = (
-        "📘 <b>Доступные команды:</b>\n"
-        "📊 <b>Мой статус</b> — Проверить подписку\n"
-        "🎯 <b>Проверить уровень</b> — Пройти тест уровня заново\n"
-        "💎 <b>Купить Premium</b> — Получить премиум-доступ\n"
-        "🧠 <b>Очистить память</b> — Бот забывает историю разговора\n"
-        "❓ <b>Помощь</b> — Показать это меню\n\n"
+        "📘 <b>Доступные команды:</b>\n\n"
+        "📊 <b>Мой статус</b> — Подписка, streak, персонаж\n"
+        "🎲 <b>Тема для разговора</b> — Случайная тема + фразы\n"
+        "🎯 <b>Проверить уровень</b> — Пройти тест заново\n"
+        "💎 <b>Купить Premium</b> — Премиум-доступ\n"
+        "🧠 <b>Очистить память</b> — Сбросить историю\n"
+        "❓ <b>Помощь</b> — Это меню\n\n"
         "<b>Как это работает:</b>\n"
         "1. Отправляй голосовое или текстовое сообщение на английском\n"
         "2. Я отвечу с исправлениями и голосом\n"
-        "3. Практикуйся естественно и улучшайся!\n\n"
-        "Нужна помощь? Напишите нам: english.tution.bot@gmail.com"
+        "3. Практикуйся каждый день — копи streak и получай бонусы!\n\n"
+        "<b>Streak-награды:</b>\n"
+        "🎁 3 дня — +5 сообщений\n"
+        "🎁 7 дней — +10 сообщений\n"
+        "🎁 14 дней — +20 сообщений\n"
+        "⭐ 30 дней — +1 день Premium\n\n"
+        "Нужна помощь? english.tution.bot@gmail.com"
     )
 
     await message.answer(

@@ -8,6 +8,7 @@ load_dotenv()
 
 from logger import get_logger
 from handlers import commands, conversation, payments, onboarding
+from handlers import topics, quiz
 from database import init_db
 # from payment_checker import start_payment_checker  # BscScan API требует платный план
 
@@ -29,7 +30,9 @@ async def main():
     dp.include_router(commands.router)
     dp.include_router(onboarding.router)
     dp.include_router(payments.router)
-    dp.include_router(conversation.router)
+    dp.include_router(topics.router)
+    dp.include_router(quiz.router)
+    dp.include_router(conversation.router)  # последний — ловит весь текст
 
     logger.info("🤖 Бот запущен и готов к работе!")
     await bot.delete_webhook(drop_pending_updates=True)

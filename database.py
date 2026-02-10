@@ -398,6 +398,7 @@ def ensure_columns():
             "messages_count": "INTEGER DEFAULT 0",
             "onboarding_completed": "INTEGER DEFAULT 0",
             "referral_code": "TEXT",
+            "last_streak_reward": "INTEGER DEFAULT 0",
         }
 
         for column, ddl in required_columns.items():
@@ -494,6 +495,23 @@ def add_premium_days(user_id: int, days: int = 1):
             )
 
         conn.commit()
+
+
+def get_streak_reward_level(user_id: int) -> int:
+    """Возвращает максимальный уровень streak-награды, уже полученный пользователем."""
+    user = get_user(user_id)
+    if not user:
+        return 0
+    return int(user_get(user, "last_streak_reward", 0))
+
+
+def set_streak_reward_level(user_id: int, level: int):
+    """Устанавливает уровень последней полученной streak-награды."""
+    with _connect_locked() as conn:
+        conn.execute(
+            "UPDATE users SET last_streak_reward = ? WHERE user_id = ?",
+            (level, user_id),
+        )
 
 
 def is_transaction_processed(tx_hash: str) -> bool:
