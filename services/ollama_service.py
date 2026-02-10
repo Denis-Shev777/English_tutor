@@ -938,39 +938,43 @@ def call_ollama_raw(prompt: str) -> str:
 def extract_word_from_query(user_text: str):
     """Извлекает слово из запроса о значении (на русском или английском)"""
     lower = user_text.strip().lower()
+    normalized = re.sub(r"[^a-zA-Zа-яА-ЯёЁ0-9\s'\-]", " ", lower)
+    normalized = re.sub(r"\s+", " ", normalized).strip()
 
-    # Паттерны для английских запросов
-    en_patterns = [
-        r"^\s*what\s+is\s+(?:mean\s+)?(\w+)\s*\??\s*$",         # what is mean animal / what is animal
-        r"^\s*what\s+does\s+(\w+)\s+mean\s*\??\s*$",            # what does animal mean
-        r"^\s*meaning\s+of\s+(\w+)\s*\??\s*$",                  # meaning of animal
-        r"^\s*translation\s+of\s+(?:word\s+)?(\w+)\s*\??\s*$",  # translation of word animal
-        r"^\s*russian\s+translation\s+of\s+(?:word\s+)?(\w+)\s*\??\s*$",
-        r"^\s*translate\s+(?:please\s+)?(\w+)\s*\??\s*$",       # translate animal / translate please animal
-        r"^\s*what\s+is\s+mean\s+by\s+(\w+)\s*\??\s*$",         # what is mean by animal
-        r"^\s*what\s+is\s+mean\s+in\s+(\w+)\s*\??\s*$",         # what is mean in travel (ASR typo)
-        r"^\s*what's\s+(\w+)\s*\??\s*$",                        # what's animal
+    word_re = r"([a-zA-Zа-яА-ЯёЁ][a-zA-Zа-яА-ЯёЁ'\-]{0,30})"
+
+    patterns = [
+        # English intents (в т.ч. длинные фразы с вводными словами)
+        rf"\bwhat\s+does\s+{word_re}\s+mean\b",
+        rf"\bwhat\s+is\s+the\s+meaning\s+of\s+{word_re}\b",
+        rf"\bmeaning\s+of\s+{word_re}\b",
+        rf"\btranslation\s+of\s+(?:the\s+)?(?:word\s+)?{word_re}\b",
+        rf"\brussian\s+translation\s+of\s+(?:the\s+)?(?:word\s+)?{word_re}\b",
+        rf"\btranslate\s+(?:please\s+)?(?:the\s+)?(?:word\s+)?{word_re}\b",
+        rf"\bwhat\s+is\s+mean\s+by\s+{word_re}\b",
+        rf"\bwhat\s+is\s+mean\s+in\s+{word_re}\b",   # ASR typo
+        rf"\bwhat\s+is\s+mean\s+{word_re}\b",        # ASR typo: "what is mean table"
+        rf"\bwhat's\s+{word_re}\b",
+        # Russian intents
+        rf"\bчто\s+значит\s+{word_re}\b",
+        rf"\bчто\s+такое\s+{word_re}\b",
+        rf"\bчто\s+означает\s+{word_re}\b",
+        rf"\bзначение\s+{word_re}\b",
+        rf"\bперевод\s+{word_re}\b",
+        rf"\bпереведи\s+(?:слово\s+)?(?:пожалуйста\s+)?{word_re}\b",
+        rf"\bкак\s+переводится\s+{word_re}\b",
+        rf"\bкак\s+будет\s+{word_re}\b",
+        rf"\bкак\s+(?:по-английски|по\s+английски)\s+{word_re}\b",
+        rf"\b{word_re}\s*-\s*это\s+что\b",
+        rf"\b{word_re}\s*-\s*что\s+это\b",
     ]
 
-    # Паттерны для русских запросов
-    ru_patterns = [
-        r"^\s*(?:а\s+)?что\s+значит\s+(?:-\s*)?(\w+)\s*\??\s*$",         # что значит animal / а что значит animal
-        r"^\s*(?:а\s+)?что\s+такое\s+(\w+)\s*\??\s*$",                   # что такое animal / а что такое dog
-        r"^\s*значение\s+(\w+)\s*\??\s*$",                               # значение animal
-        r"^\s*переведи\s+(?:слово\s+)?(?:пожалуйста\s+)?(\w+)\s*\??\s*$",  # переведи animal / переведи пожалуйста animal
-        r"^\s*перевод\s+(\w+)\s*\??\s*$",                                # перевод animal
-        r"^\s*(?:а\s+)?как\s+переводится\s+(\w+)\s*\??\s*$",             # как переводится animal / а как переводится dog
-        r"^\s*(?:а\s+)?как\s+будет\s+(\w+)\s*\??\s*$",                   # как будет animal / а как будет dog
-        r"^\s*(?:а\s+)?как\s+(?:по-английски|по\s+английски)\s+(\w+)\s*\??\s*$",  # а как по-английски собака
-        r"^\s*(\w+)\s*-\s*это\s+что\s*\??\s*$",                          # animal - это что?
-        r"^\s*(\w+)\s*-\s*что\s+это\s*\??\s*$",                          # animal - что это?
-        r"^\s*что\s+означает\s+(\w+)\s*\??\s*$",                         # что означает animal
-    ]
-
-    for pattern in en_patterns + ru_patterns:
-        match = re.search(pattern, lower)
+    for pattern in patterns:
+        match = re.search(pattern, normalized, flags=re.IGNORECASE)
         if match:
-            return match.group(1)
+            word = match.group(1).strip(" -'\"")
+            if len(word) >= 2:
+                return word.lower()
 
     return None
 
@@ -981,9 +985,13 @@ def is_word_translation_request(user_text: str) -> bool:
     patterns = [
         r"\btranslation\b",
         r"\btranslate\b",
+        r"\bmeaning\b",
+        r"\bmean\b",
         r"\bперевод\b",
         r"\bпереведи\b",
         r"\bперевести\b",
+        r"\bчто\s+значит\b",
+        r"\bчто\s+означает\b",
         r"\bкак\s+переводится\b",
     ]
     return any(re.search(p, text) for p in patterns)
@@ -1049,6 +1057,22 @@ Different - другой, различный, отличающийся
 Now explain "{word_to_explain}"."""
 
         raw_explanation = call_ollama_raw(explain_prompt)
+
+        # Гарантия RU-перевода: если модель ответила только на английском,
+        # повторяем запрос в более строгом словарном формате.
+        if not re.search(r"[А-Яа-яЁё]", raw_explanation):
+            strict_prompt = f"""You are a bilingual EN-RU dictionary.
+Explain the English word "{word_to_explain}".
+
+Return EXACTLY 3 lines:
+1) Short English meaning (max 10 words)
+2) {word_to_explain} - <Russian translation>
+3) Пример: <short English sentence> - <Russian translation>
+
+No extra text, no questions.
+"""
+            raw_explanation = call_ollama_raw(strict_prompt).strip()
+
         return {
             "reply": raw_explanation,
             "question": None,
