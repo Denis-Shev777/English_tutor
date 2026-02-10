@@ -11,7 +11,6 @@ import sys
 import os
 import random
 import string
-import sqlite3
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -21,7 +20,7 @@ from database import (
     set_user_level,
     mark_onboarding_completed,
     is_onboarding_completed,
-    DB_NAME,
+    set_referral_code,
 )
 from logger import get_logger
 
@@ -340,40 +339,22 @@ async def complete_onboarding(callback: CallbackQuery, level: str, last_correct:
     user_id = callback.from_user.id
     username = callback.from_user.username
 
-    # Создаем пользователя если его нет
-    # Если пользователя нет — создаём
+    # Создаём пользователя если его нет
     if not get_user(user_id):
         create_user(user_id, username)
 
-    # Всегда генерируем код (даже если онбординг уже пройден)
-    user = get_user(user_id)
-    if user and len(user) > 8 and not user[8]:  # referral_code пустой?
-        referral_code = generate_referral_code()
-        conn = sqlite3.connect(DB_NAME)
-        cursor = conn.cursor()
-        cursor.execute(
-            "UPDATE users SET referral_code = ? WHERE user_id = ?",
-            (referral_code, user_id),
-        )
-        conn.commit()
-        conn.close()
-        logger.info(
-            f"Реферальный код сгенерирован для существующего пользователя {user_id}: {referral_code}"
-        )
-
-    # Сохраняем уровень
+    # Сохраняем уровень и завершаем онбординг
     set_user_level(user_id, level)
     mark_onboarding_completed(user_id)
 
-    # === ГЕНЕРИРУЕМ И СОХРАНЯЕМ РЕФЕРАЛЬНЫЙ КОД ===
-    referral_code = generate_referral_code()
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute(
-        "UPDATE users SET referral_code = ? WHERE user_id = ?", (referral_code, user_id)
-    )
-    conn.commit()
-    conn.close()
+    # Генерируем реферальный код только если его ещё нет
+    user = get_user(user_id)
+    existing_code = user[8] if user and len(user) > 8 else None
+    if not existing_code:
+        referral_code = generate_referral_code()
+        set_referral_code(user_id, referral_code)
+    else:
+        referral_code = existing_code
 
     logger.info(
         f"Пользователь {user_id} завершил онбординг, уровень: {level}, реферальный код: {referral_code}"
