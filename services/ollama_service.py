@@ -944,8 +944,11 @@ def extract_word_from_query(user_text: str):
         r"^\s*what\s+is\s+(?:mean\s+)?(\w+)\s*\??\s*$",         # what is mean animal / what is animal
         r"^\s*what\s+does\s+(\w+)\s+mean\s*\??\s*$",            # what does animal mean
         r"^\s*meaning\s+of\s+(\w+)\s*\??\s*$",                  # meaning of animal
+        r"^\s*translation\s+of\s+(?:word\s+)?(\w+)\s*\??\s*$",  # translation of word animal
+        r"^\s*russian\s+translation\s+of\s+(?:word\s+)?(\w+)\s*\??\s*$",
         r"^\s*translate\s+(?:please\s+)?(\w+)\s*\??\s*$",       # translate animal / translate please animal
         r"^\s*what\s+is\s+mean\s+by\s+(\w+)\s*\??\s*$",         # what is mean by animal
+        r"^\s*what\s+is\s+mean\s+in\s+(\w+)\s*\??\s*$",         # what is mean in travel (ASR typo)
         r"^\s*what's\s+(\w+)\s*\??\s*$",                        # what's animal
     ]
 
