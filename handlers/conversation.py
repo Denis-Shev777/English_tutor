@@ -98,9 +98,14 @@ def extract_english_for_tts(text: str) -> str:
     return result.strip()
 
 
-async def process_user_message(message: Message, user_text: str):
-    user_id = message.from_user.id
-    username = message.from_user.username
+async def process_user_message(message: Message, user_text: str, from_user=None):
+    """from_user — передавать callback.from_user при вызове из callback-хендлеров."""
+    if from_user:
+        user_id = from_user.id
+        username = from_user.username
+    else:
+        user_id = message.from_user.id
+        username = message.from_user.username
     bot = message.bot
 
     history = get_conversation_history(user_id)
@@ -275,7 +280,7 @@ async def handle_phrase_selection(callback: CallbackQuery):
         # Небольшая задержка
         await asyncio.sleep(random.uniform(1.5, 3.0))
         # Обрабатываем как обычное сообщение
-        await process_user_message(callback.message, selected_phrase)
+        await process_user_message(callback.message, selected_phrase, from_user=callback.from_user)
 
 
 @router.message(F.voice)
@@ -466,4 +471,4 @@ async def on_suggestion_click(callback: CallbackQuery):
         pass
 
     # Обрабатываем как обычное сообщение
-    await process_user_message(callback.message, text)
+    await process_user_message(callback.message, text, from_user=callback.from_user)
