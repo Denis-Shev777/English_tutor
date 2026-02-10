@@ -90,9 +90,26 @@ def extract_english_for_tts(text: str) -> str:
     )
     filtered = "".join(ch for ch in text if ch in allowed)
 
+    # После удаления кириллицы часто остаются " - " и одиночные знаки,
+    # которые TTS произносит как "dash/dot". Чистим их.
+    filtered = re.sub(r"\s*-\s*", " ", filtered)
+    filtered = re.sub(r"\s*:\s*", " ", filtered)
+    filtered = re.sub(r"\s*\.\s*\.\s*\.\s*", ". ", filtered)
+
     # Убираем пустые строки/двойные пробелы
     lines = [ln.strip() for ln in filtered.splitlines() if ln.strip()]
-    result = "\n".join(lines)
+    clean_lines = []
+    for ln in lines:
+        # Линии из одной пунктуации не нужны для озвучки.
+        if re.fullmatch(r"[\W_]+", ln):
+            continue
+        # Убираем пунктуацию в начале/конце строки, оставляя внутреннюю.
+        ln = re.sub(r"^[\s\.,;:!?\-]+", "", ln)
+        ln = re.sub(r"[\s\.,;:!?\-]+$", "", ln)
+        if ln:
+            clean_lines.append(ln)
+
+    result = "\n".join(clean_lines)
     while "  " in result:
         result = result.replace("  ", " ")
     return result.strip()
