@@ -302,4 +302,4 @@ async def topic_phrase_click(callback: CallbackQuery):
 
     from handlers.conversation import process_user_message
 
-    await process_user_message(callback.message, phrase)
+    await process_user_message(callback.message, phrase, from_user=callback.from_user)
