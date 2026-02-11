@@ -445,6 +445,46 @@ async def cmd_referral(message: Message):
     )
 
 
+@router.message(F.text == "📢 Пригласить друга")
+async def cmd_invite(message: Message):
+    """Кнопка 'Пригласить друга' — показывает ссылку на квиз и реферальный код"""
+    user_id = message.from_user.id
+    username = message.from_user.username
+    user = get_user(user_id)
+
+    # Получаем username бота
+    bot_info = await message.bot.get_me()
+    bot_username = bot_info.username
+
+    quiz_link = f"https://t.me/{bot_username}?start=quiz30"
+
+    # Реферальный код (если есть)
+    referral_code = user[8] if user and len(user) > 8 and user[8] else None
+    referral_link = f"https://t.me/{bot_username}?start=REF_{referral_code}" if referral_code else None
+
+    text = (
+        "📢 <b>Пригласи друга!</b>\n\n"
+        "🎓 <b>Ссылка на квиз</b> (5 вопросов):\n"
+        f"<code>{quiz_link}</code>\n\n"
+        "Отправь эту ссылку друзьям — они пройдут быстрый тест\n"
+        "и смогут начать практику английского!\n"
+    )
+
+    if referral_link:
+        text += (
+            f"\n🔗 <b>Твоя реферальная ссылка:</b>\n"
+            f"<code>{referral_link}</code>\n\n"
+            "Друг получит <b>+50 сообщений</b>, а ты —\n"
+            "бонус к подписке!"
+        )
+
+    await message.answer(
+        text,
+        reply_markup=get_main_menu(user_id, username),
+        parse_mode="HTML",
+    )
+
+
 @router.message(F.text == "🎯 Проверить уровень")
 @router.message(Command("level"))
 async def cmd_level(message: Message):
