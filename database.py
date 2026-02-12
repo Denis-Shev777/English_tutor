@@ -176,6 +176,15 @@ def get_user(user_id: int):
         return cur.fetchone()
 
 
+def get_user_id_by_username(username: str):
+    """Получить user_id по username"""
+    with _connect_locked() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT user_id FROM users WHERE username = ?", (username,))
+        row = cur.fetchone()
+        return row[0] if row else None
+
+
 def set_user_level(user_id: int, level: str):
     with _connect_locked() as conn:
         conn.execute("UPDATE users SET level = ? WHERE user_id = ?", (level, user_id))
