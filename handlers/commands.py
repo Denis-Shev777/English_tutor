@@ -220,14 +220,16 @@ async def cmd_status(message: Message):
 
     # Белый список по username
     if username and username in WHITELIST_USERNAMES:
-        referral_code = user[8] if len(user) > 8 else "Не сгенерирован"
+        referral_code = user[8] if len(user) > 8 else None
+        bot_info = await message.bot.get_me()
+        ref_line = f"🔗 Реферальная ссылка:\n<code>https://t.me/{bot_info.username}?start=REF_{referral_code}</code>" if referral_code else "Реферальный код: не сгенерирован"
         await message.answer(
             f"⭐ <b>VIP Статус</b>\n\n"
             f"Персонаж: {badge_line}\n"
             f"Streak: {streak} дн. подряд 🎯{streak_progress}\n\n"
             f"У вас неограниченный доступ!\n"
-            f"Подписка: Пожизненный Premium 💎\n"
-            f"Реферальный код: <code>{referral_code}</code>",
+            f"Подписка: Пожизненный Premium 💎\n\n"
+            f"{ref_line}",
             reply_markup=get_main_menu(user_id, username),
             parse_mode="HTML",
         )
@@ -245,15 +247,17 @@ async def cmd_status(message: Message):
             hours_left = time_left.seconds // 3600
             time_info = f"Часов осталось: {hours_left}"
 
-        referral_code = user[8] if len(user) > 8 else "Не сгенерирован"
+        referral_code = user[8] if len(user) > 8 else None
+        bot_info = await message.bot.get_me()
+        ref_line = f"🔗 Реферальная ссылка:\n<code>https://t.me/{bot_info.username}?start=REF_{referral_code}</code>" if referral_code else "Реферальный код: не сгенерирован"
         await message.answer(
             f"✅ <b>Premium активен</b>\n\n"
             f"Персонаж: {badge_line}\n"
             f"Streak: {streak} дн. подряд 🎯{streak_progress}\n\n"
             f"Статус: Premium 💎\n"
             f"Истекает: {expires.strftime('%Y-%m-%d %H:%M')}\n"
-            f"{time_info}\n"
-            f"Реферальный код: <code>{referral_code}</code>\n\n"
+            f"{time_info}\n\n"
+            f"{ref_line}\n\n"
             f"Продолжайте в том же духе!",
             reply_markup=get_main_menu(user_id, username),
             parse_mode="HTML",
@@ -439,12 +443,23 @@ async def cmd_referral(message: Message):
         )
         return
 
-    code = user[8] if len(user) > 8 else "Не сгенерирован"
-    await message.answer(
-        f"🔗 Ваш реферальный код: <code>{code}</code>\n\n"
-        f"Поделитесь им с другом — и получите бонус!",
-        parse_mode="HTML",
-    )
+    code = user[8] if len(user) > 8 else None
+    if code:
+        bot_info = await message.bot.get_me()
+        ref_link = f"https://t.me/{bot_info.username}?start=REF_{code}"
+        await message.answer(
+            f"🔗 <b>Твоя реферальная ссылка:</b>\n"
+            f"<code>{ref_link}</code>\n\n"
+            f"Отправь другу — он получит <b>+50 сообщений</b>,\n"
+            f"а ты — бонус к подписке!",
+            parse_mode="HTML",
+        )
+    else:
+        await message.answer(
+            "Реферальный код ещё не сгенерирован.\n"
+            "Он появится после оформления Premium.",
+            parse_mode="HTML",
+        )
 
 
 @router.message(F.text == "📢 Пригласить друга")
