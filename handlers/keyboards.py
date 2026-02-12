@@ -127,6 +127,11 @@ def get_buy_menu():
             ],
             [
                 InlineKeyboardButton(
+                    text="📱 Пополнение телефона (179 ₽)", callback_data="pay_phone"
+                )
+            ],
+            [
+                InlineKeyboardButton(
                     text="❓ Как купить Stars?", callback_data="how_to_buy_stars"
                 )
             ],
