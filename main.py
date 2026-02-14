@@ -10,6 +10,7 @@ from logger import get_logger
 from handlers import commands, conversation, payments, onboarding
 from handlers import topics, quiz
 from database import init_db
+from services.reminder_service import reminder_loop
 # from payment_checker import start_payment_checker  # BscScan API требует платный план
 
 logger = get_logger('main')
@@ -39,6 +40,9 @@ async def main():
 
     # Фоновая проверка USDT отключена (BscScan API требует платный план)
     # asyncio.create_task(start_payment_checker(bot))
+
+    # Фоновые напоминания неактивным пользователям (каждый час)
+    asyncio.create_task(reminder_loop(bot))
 
     try:
         await dp.start_polling(bot)
