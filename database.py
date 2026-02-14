@@ -159,6 +159,16 @@ def init_db():
             """
         )
 
+        # Миграция: добавляем last_reminder_sent если нет
+        cursor.execute("PRAGMA table_info(users)")
+        columns = [row[1] for row in cursor.fetchall()]
+        if "last_reminder_sent" not in columns:
+            cursor.execute("ALTER TABLE users ADD COLUMN last_reminder_sent TEXT")
+
+        # Сбрасываем кеш колонок после возможной миграции
+        global _USERS_COLUMNS_CACHE
+        _USERS_COLUMNS_CACHE = None
+
 
 def create_user(user_id: int, username: str):
     with _connect_locked() as conn:
@@ -331,6 +341,41 @@ def get_total_users():
         cur = conn.cursor()
         cur.execute("SELECT COUNT(*) FROM users")
         return cur.fetchone()[0]
+
+
+def get_all_user_ids():
+    """Получить список всех user_id"""
+    with _connect_locked() as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT user_id FROM users")
+        return [row[0] for row in cur.fetchall()]
+
+
+def get_inactive_users(inactive_hours: int = 24):
+    """Получить пользователей, неактивных больше N часов и не получавших напоминание сегодня."""
+    cutoff = (datetime.now() - timedelta(hours=inactive_hours)).strftime("%Y-%m-%d")
+    today = datetime.now().strftime("%Y-%m-%d")
+    with _connect_locked() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """SELECT user_id, username, streak_days, last_active_date
+               FROM users
+               WHERE onboarding_completed = 1
+                 AND (last_active_date IS NULL OR last_active_date <= ?)
+                 AND (last_reminder_sent IS NULL OR last_reminder_sent < ?)""",
+            (cutoff, today),
+        )
+        return cur.fetchall()
+
+
+def set_reminder_sent(user_id: int):
+    """Отметить что напоминание отправлено сегодня."""
+    today = datetime.now().strftime("%Y-%m-%d")
+    with _connect_locked() as conn:
+        conn.execute(
+            "UPDATE users SET last_reminder_sent = ? WHERE user_id = ?",
+            (today, user_id),
+        )
 
 
 def get_active_subscriptions():

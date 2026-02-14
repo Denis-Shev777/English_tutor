@@ -56,6 +56,7 @@ def get_main_menu(user_id=None, username=None):
                     KeyboardButton(text="🧠 Очистить память"),
                 ],
                 [
+                    KeyboardButton(text="📣 Рассылка"),
                     KeyboardButton(text="❓ Помощь"),
                 ],
             ],

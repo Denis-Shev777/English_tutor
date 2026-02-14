@@ -427,6 +427,79 @@ async def cmd_stats(message: Message):
     )
 
 
+# --- Рассылка (только для админа) ---
+broadcast_state: dict[int, bool] = {}
+
+
+@router.message(F.text == "📣 Рассылка")
+async def cmd_broadcast(message: Message):
+    """Кнопка рассылки — только для VIP/админов"""
+    username = message.from_user.username
+    if username not in WHITELIST_USERNAMES:
+        return
+
+    user_id = message.from_user.id
+    broadcast_state[user_id] = True
+
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="❌ Отмена", callback_data="broadcast_cancel")]
+        ]
+    )
+    await message.answer(
+        "📣 <b>Рассылка</b>\n\n"
+        "Напиши текст сообщения, которое получат <b>все</b> пользователи.\n\n"
+        "Или нажми Отмена.",
+        reply_markup=keyboard,
+        parse_mode="HTML",
+    )
+
+
+@router.callback_query(F.data == "broadcast_cancel")
+async def broadcast_cancel(callback: CallbackQuery):
+    """Отмена рассылки"""
+    await callback.answer()
+    user_id = callback.from_user.id
+    broadcast_state.pop(user_id, None)
+    await callback.message.edit_text("❌ Рассылка отменена.")
+
+
+@router.message(lambda m: broadcast_state.get(m.from_user.id, False))
+async def broadcast_send(message: Message):
+    """Отправка рассылки всем пользователям"""
+    user_id = message.from_user.id
+    username = message.from_user.username
+
+    # Только админ
+    if username not in WHITELIST_USERNAMES:
+        return
+
+    broadcast_state.pop(user_id, None)
+    text = message.text
+
+    from database import get_all_user_ids
+    all_users = get_all_user_ids()
+
+    sent = 0
+    failed = 0
+    import asyncio
+    for uid in all_users:
+        try:
+            await message.bot.send_message(uid, text, parse_mode="HTML")
+            sent += 1
+            await asyncio.sleep(0.3)
+        except Exception:
+            failed += 1
+
+    await message.answer(
+        f"📣 <b>Рассылка завершена</b>\n\n"
+        f"✅ Доставлено: {sent}\n"
+        f"❌ Не доставлено: {failed}",
+        reply_markup=get_main_menu(user_id, username),
+        parse_mode="HTML",
+    )
+
+
 @router.message(Command("referral"))
 async def cmd_referral(message: Message):
     """Показать реферальный код"""
