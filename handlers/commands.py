@@ -427,15 +427,16 @@ async def cmd_stats(message: Message):
     )
 
 
-# --- Рассылка (только для админа) ---
+# --- Рассылка (только для главного админа Den_Shev_007) ---
+BROADCAST_ADMIN = "Den_Shev_007"
 broadcast_state: dict[int, bool] = {}
 
 
 @router.message(F.text == "📣 Рассылка")
 async def cmd_broadcast(message: Message):
-    """Кнопка рассылки — только для VIP/админов"""
+    """Кнопка рассылки — только для главного админа"""
     username = message.from_user.username
-    if username not in WHITELIST_USERNAMES:
+    if username != BROADCAST_ADMIN:
         return
 
     user_id = message.from_user.id
@@ -470,8 +471,8 @@ async def broadcast_send(message: Message):
     user_id = message.from_user.id
     username = message.from_user.username
 
-    # Только админ
-    if username not in WHITELIST_USERNAMES:
+    # Только главный админ
+    if username != BROADCAST_ADMIN:
         return
 
     broadcast_state.pop(user_id, None)

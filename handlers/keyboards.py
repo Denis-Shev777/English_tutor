@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 WHITELIST_USERNAMES = os.getenv("WHITELIST_USERNAMES", "").split(",")
+BROADCAST_ADMIN = "Den_Shev_007"
 
 
 def get_suggested_phrases_keyboard():
@@ -41,25 +42,30 @@ def get_main_menu(user_id=None, username=None):
     """Главное меню в зависимости от статуса"""
     # VIP пользователи
     if username and username in WHITELIST_USERNAMES:
-        keyboard = ReplyKeyboardMarkup(
-            keyboard=[
-                [
-                    KeyboardButton(text="📊 Мой статус"),
-                    KeyboardButton(text="📈 Статистика"),
-                ],
-                [
-                    KeyboardButton(text="🎲 Тема для разговора"),
-                    KeyboardButton(text="🎯 Проверить уровень"),
-                ],
-                [
-                    KeyboardButton(text="📢 Пригласить друга"),
-                    KeyboardButton(text="🧠 Очистить память"),
-                ],
-                [
-                    KeyboardButton(text="📣 Рассылка"),
-                    KeyboardButton(text="❓ Помощь"),
-                ],
+        rows = [
+            [
+                KeyboardButton(text="📊 Мой статус"),
+                KeyboardButton(text="📈 Статистика"),
             ],
+            [
+                KeyboardButton(text="🎲 Тема для разговора"),
+                KeyboardButton(text="🎯 Проверить уровень"),
+            ],
+            [
+                KeyboardButton(text="📢 Пригласить друга"),
+                KeyboardButton(text="🧠 Очистить память"),
+            ],
+        ]
+        # Кнопка рассылки — только для главного админа
+        if username == BROADCAST_ADMIN:
+            rows.append([
+                KeyboardButton(text="📣 Рассылка"),
+                KeyboardButton(text="❓ Помощь"),
+            ])
+        else:
+            rows.append([KeyboardButton(text="❓ Помощь")])
+        keyboard = ReplyKeyboardMarkup(
+            keyboard=rows,
             resize_keyboard=True,
             persistent=True,
         )
