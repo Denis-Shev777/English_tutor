@@ -1089,7 +1089,11 @@ Russian translation:"""
             if role == "user":
                 conversation += f"\nStudent: {content}"
             else:
-                conversation += f"\nTeacher: {content}"
+                # Убираем строки с ✅ (старые исправления), чтобы LLM не повторял их
+                clean_lines = [ln for ln in content.split("\n") if not ln.strip().startswith("✅")]
+                clean_content = "\n".join(clean_lines).strip()
+                if clean_content:
+                    conversation += f"\nTeacher: {clean_content}"
 
     current_date = datetime.now().strftime("%A, %B %d, %Y")
     LEVEL_STYLE = {
