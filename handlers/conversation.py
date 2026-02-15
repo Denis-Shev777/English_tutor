@@ -138,9 +138,10 @@ async def process_user_message(message: Message, user_text: str, from_user=None)
         parts.append(question)
     full_text = "\n".join(parts).strip()
 
-    # --- Сохраняем в историю ---
+    # --- Сохраняем в историю (без correction, чтобы LLM не повторял старые исправления) ---
+    history_text = "\n".join([p for p in [reply, question] if p]).strip()
     save_message(user_id, "user", user_text)
-    save_message(user_id, "assistant", full_text)
+    save_message(user_id, "assistant", history_text or full_text)
     increment_message_count(user_id, username)
 
     # --- STREAK ---
