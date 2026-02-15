@@ -819,16 +819,18 @@ Respond ONLY in valid JSON format with the following keys:
 - "tip": very short grammar/vocab tip (optional)
 
 CRITICAL RULES FOR ERROR CORRECTION:
-- You MUST check EVERY student message for grammar, vocabulary, and spelling errors
-- If you find ANY error (even small), you MUST provide "correction" field with the fixed sentence
+- "correction" must be the student's LAST message with ONLY grammar/spelling fixes applied.
+- Do NOT rephrase, do NOT change meaning, do NOT add/remove words unless grammar requires it.
+- Do NOT put content from previous messages into "correction"!
 - Common errors to catch: subject-verb agreement (I has → I have), articles (a/an/the), word order, tense errors
-- Examples of what to correct:
-  * "I has plan" → correction: "I have a plan"
-  * "She go to school" → correction: "She goes to school"
-  * "I am live in Moscow" → correction: "I live in Moscow"
-- If the sentence is CORRECT — do NOT provide "correction" field! NEVER "correct" a sentence into the same sentence.
-- NEVER suggest a correction that is identical or nearly identical to what the student wrote.
-- ALWAYS correct ONLY the student's LATEST/MOST RECENT message. NEVER repeat or reuse corrections from earlier messages in the conversation history.
+- Examples:
+  * Student says "I has plan" → correction: "I have a plan"
+  * Student says "She go to school" → correction: "She goes to school"
+  * Student says "i doesn't know" → correction: "I don't know"
+  * Student says "i liked music way" → correction: "I liked the way of music" (NOT something about previous topic!)
+- BAD example: Student says "i doesn't know" but correction is "I like a cat" ← WRONG! That's from a previous message!
+- If the sentence is CORRECT — do NOT provide "correction" field at all.
+- NEVER suggest a correction that is identical to what the student wrote.
 
 CONVERSATION CONTEXT RULES:
 - Pay attention to the FULL conversation history. Remember what the student said earlier.
@@ -1264,11 +1266,12 @@ Russian translation:"""
 IMPORTANT: Today's date is {current_date}.
 Student level: {level}
 Teaching style: {style}
-CRITICAL: Check the student's message for ANY grammar, vocabulary, or spelling errors. If you find errors, you MUST provide "correction" field! If the message is correct, do NOT invent corrections."""
+CORRECTION TASK: The student's latest message is shown after "Student (NOW):". If it has grammar errors, put the SAME sentence with fixes into "correction". Do NOT use words or sentences from conversation history in "correction"!"""
 
     user_prompt = f"""Conversation history:{conversation}
-Student: {user_text}
-Teacher:"""
+
+Student (NOW): {user_text}
+Respond to the student's latest message above as the Teacher. Output valid JSON:"""
 
     raw_response = call_ollama_raw(user_prompt, system_prompt=system).strip()
 
