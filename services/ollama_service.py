@@ -826,7 +826,15 @@ CRITICAL RULES FOR ERROR CORRECTION:
   * "I has plan" → correction: "I have a plan"
   * "She go to school" → correction: "She goes to school"
   * "I am live in Moscow" → correction: "I live in Moscow"
-- If sentence is 100% correct, omit "correction" field
+- If the sentence is CORRECT — do NOT provide "correction" field! NEVER "correct" a sentence into the same sentence.
+- NEVER suggest a correction that is identical or nearly identical to what the student wrote.
+
+CONVERSATION CONTEXT RULES:
+- Pay attention to the FULL conversation history. Remember what the student said earlier.
+- If the student mentions a budget, price, or preference — keep your suggestions relevant to it.
+  Example: if student says budget is $100, do NOT suggest luxury brands ($2000+).
+- Keep the conversation natural and coherent. Don't repeat yourself.
+- Your follow-up questions should relate to what the student just said.
 
 RULES:
 - ALWAYS wrap ALL string values in double quotes (").
@@ -896,16 +904,17 @@ def check_word_and_suggest(user_text: str):
     return None
 
 
-def call_ollama_raw(prompt: str) -> str:
-    """Вызов Groq API (бесплатный Llama 3.1) - формат как в оригинальном Ollama"""
+def call_ollama_raw(prompt: str, system_prompt: str = None) -> str:
+    """Вызов Groq API (бесплатный Llama 3.1)"""
     try:
-        # Отправляем весь промпт единым блоком как в оригинальной версии с Ollama
-        # Это обеспечивает идентичное поведение модели
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+
         response = client.chat.completions.create(
             model=MODEL_NAME,
-            messages=[
-                {"role": "user", "content": prompt}
-            ],
+            messages=messages,
             temperature=0.5,
             top_p=0.9,
             max_tokens=350,
@@ -1246,17 +1255,17 @@ Russian translation:"""
     }
     style = LEVEL_STYLE.get(level, LEVEL_STYLE["A1"])
 
-    # ОРИГИНАЛЬНЫЙ ФОРМАТ - весь промпт единым блоком как в Ollama версии
-    full_prompt = f"""{SYSTEM_PROMPT}
+    system = f"""{SYSTEM_PROMPT}
 IMPORTANT: Today's date is {current_date}.
 Student level: {level}
 Teaching style: {style}
-CRITICAL: Check the student's message for ANY grammar, vocabulary, or spelling errors. If you find errors, you MUST provide "correction" field!
-Conversation history:{conversation}
+CRITICAL: Check the student's message for ANY grammar, vocabulary, or spelling errors. If you find errors, you MUST provide "correction" field! If the message is correct, do NOT invent corrections."""
+
+    user_prompt = f"""Conversation history:{conversation}
 Student: {user_text}
 Teacher:"""
 
-    raw_response = call_ollama_raw(full_prompt).strip()
+    raw_response = call_ollama_raw(user_prompt, system_prompt=system).strip()
 
     # === ПАРСИНГ JSON ===
     try:
