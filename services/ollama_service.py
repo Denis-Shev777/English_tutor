@@ -828,6 +828,7 @@ CRITICAL RULES FOR ERROR CORRECTION:
   * "I am live in Moscow" → correction: "I live in Moscow"
 - If the sentence is CORRECT — do NOT provide "correction" field! NEVER "correct" a sentence into the same sentence.
 - NEVER suggest a correction that is identical or nearly identical to what the student wrote.
+- ALWAYS correct ONLY the student's LATEST/MOST RECENT message. NEVER repeat or reuse corrections from earlier messages in the conversation history.
 
 CONVERSATION CONTEXT RULES:
 - Pay attention to the FULL conversation history. Remember what the student said earlier.
